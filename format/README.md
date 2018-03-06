@@ -67,11 +67,11 @@ Use `--check True` to check if the input file is legal:
 
 ```
 $ python translate.py --check True test/multi_query.smt2
-Error on file test/check_errs/multi_query.smt2
+Error on file test/check_err/multi_query.smt2
 Illegal benchmark: expected one query clause, found 3
 
 $ python translate.py --check True test/cst_in_head.smt2
-Error on file test/check_errs/cst_in_head.smt2
+Error on file test/check_err/cst_in_head.smt2
 Illegal head: argument 42 is not a variable in (pred 42 (:var 0))
 
 $ python translate.py test/cst_in_head.smt2 > test.smt2 ; python2.7 translate.py --check True test.smt2
