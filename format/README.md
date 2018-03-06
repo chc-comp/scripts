@@ -1,7 +1,7 @@
 Given SMT-LIB horn clauses, attempts to format the clauses to the CHC-COMP format. Original script from @dddejan.
 
 - splits multiple-query scripts to single query ones (separated by `exit`)
-- forces predicate applications' arguments to be (distinct) variables
+- forces head predicate application arguments to be (distinct) variables
 
 ## Setup
 
