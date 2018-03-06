@@ -3,22 +3,128 @@ import argparse
 from sets import Set
 
 
-def check_clause(clause):
-    assert(
-        z3.is_quantifier(clause)
-    ), 'expected clause, found {}'.format(clause)
-    assert(
-        clause.is_forall()
-    ), 'expected universal quantifier, found {}'.format(clause)
+def i_formula(expr):
+    to_check = [expr]
+    while True:
+        if len(to_check) == 0:
+            return True
+        expr = to_check.pop()
+
+        if z3.is_var(expr) or z3.is_const(expr):
+            ()
+        else:
+            decl = expr.decl()
+            if decl.kind() == z3.Z3_OP_UNINTERPRETED:
+                return False
+            else:
+                to_check = to_check + expr.children()
 
 
-def check_implies(implies):
-    assert(
-        implies.decl().kind() == z3.Z3_OP_IMPLIES
-    ), 'expected implication under quantifier, found {}'.format(implies)
-    assert(
-        len(implies.children()) == 2
-    ), 'expected implication with 2 subterms, found {}'.format(implies)
+def u_predicate(expr):
+    if z3.is_const(expr) and expr.decl().kind() == z3.Z3_OP_UNINTERPRETED:
+        return True
+    decl = expr.decl()
+    if decl is None or decl.kind() != z3.Z3_OP_UNINTERPRETED:
+        return False
+    for kid in expr.children():
+        i_formula(kid)
+    return True
+
+
+def check_chc_tail(expr):
+    decl = expr.decl()
+    if decl is None or decl.kind() != z3.Z3_OP_AND:
+        if not u_predicate(expr) and not i_formula(expr):
+            raise Exception(
+                "illegal chc tail: expected u_predicate or i_formula, " +
+                "got {}".format(expr.sexpr())
+            )
+    else:
+        for kid in expr.children():
+            if not u_predicate(kid) and not i_formula(kid):
+                raise Exception(
+                    "illegal conjunct in tail: {}".format(kid.sexpr())
+                )
+    return True
+
+
+# Returns true if the head is an i_formula (query clause)
+def check_chc_head(expr):
+    if u_predicate(expr):
+        decl = expr.decl()
+        if decl is not None:
+            known_vars = Set([])
+            for kid in expr.children():
+                if not z3.is_var(kid):
+                    raise Exception(
+                        "illegal head: " +
+                        "argument {} is not a variable {}".format(
+                            expr.sexpr(), kid.sexpr()
+                        )
+                    )
+                index = z3.get_var_index(kid)
+                if index in known_vars:
+                    raise Exception(
+                        "illegal head: non-distinct arguments, " +
+                        "{} is used twice in {}".format(
+                            kid.sexpr(), expr.sexpr()
+                        )
+                    )
+                known_vars.add(z3.get_var_index(kid))
+        return False
+    elif not i_formula(expr):
+        raise Exception(
+            "illegal head: {}".expr(expr.sexpr())
+        )
+    else:
+        return True
+
+
+# Return true if the clause is a query.
+def check_chc(expr):
+    if not z3.is_quantifier(expr) or not expr.is_forall():
+        raise Exception(
+            "illegal chc: expected forall, got {}".format(expr.sexpr())
+        )
+    implies = expr.body()
+    decl = implies.decl()
+    if decl is None or decl.kind() != z3.Z3_OP_IMPLIES:
+        raise Exception(
+            "illegal chc: expected implication, got {}".format(implies.sexpr())
+        )
+    check_chc_tail(implies.children()[0])
+    is_query = check_chc_head(implies.children()[1])
+    return is_query
+
+
+def check_chcs(exprs):
+    query_count = 0
+    for expr in exprs:
+        is_query = check_chc(expr)
+        if is_query:
+            query_count += 1
+    if query_count != 1:
+        raise Exception(
+            "illegal benchmark: " +
+            "expected one query clause, found {}".format(query_count)
+        )
+
+
+def fix_quantifier(clause):
+    if z3.is_quantifier(clause):
+        assert(
+            clause.is_forall()
+        ), 'expected universal quantifier, found {}'.format(clause.sexpr())
+        return clause
+    else:
+        return z3.ForAll(z3.Const("unused", z3.IntSort()), clause)
+
+
+def fix_implies(implies):
+    if implies.decl().kind() != z3.Z3_OP_IMPLIES:
+        return z3.Implies(z3.BoolVal(True), implies)
+    else:
+        return implies
 
 
 def fix_expr(expr):
@@ -40,15 +146,14 @@ def get_conjuncts(qvars, conjunction):
 
 
 def extract_implies(clause):
-    check_clause(clause)
+    clause = fix_quantifier(clause)
     qvars = [
         z3.Const(clause.var_name(n), clause.var_sort(n)) for n in range(
             0, clause.num_vars()
         )
     ]
 
-    implies = clause.body()
-    check_implies(implies)
+    implies = fix_implies(clause.body())
     kids = implies.children()
     body = get_conjuncts(qvars, kids[0])
     head = z3.substitute_vars(kids[1], * qvars)
@@ -83,7 +188,9 @@ def fix_pred_app(qvars, expr):
         known_vars = Set([])
         kids = []
         for kid in expr.children():
-            if z3.is_const(kid):
+            if z3.is_const(
+                kid
+            ) and kid.decl().kind() == z3.Z3_OP_UNINTERPRETED:
                 if kid not in known_vars:
                     known_vars.add(kid)
                     kids.append(kid)
@@ -107,20 +214,26 @@ def fix_clause(clause):
     # print_context(context, pref='  ')
 
     qvars = context['qvars']
-    body_terms = []
+    body_exprs = []
     for expr in context['body']:
-        res = fix_pred_app(qvars, expr)
-        qvars = res[0]
-        body_terms.append(res[1])
-        for term in res[2]:
-            body_terms.append(term)
+        # res = fix_pred_app(qvars, expr)
+        # qvars = res[0]
+        # body_exprs.append(res[1])
+        # for expr in res[2]:
+        #     body_exprs.append(expr)
+        body_exprs.append(expr)
 
     res = fix_pred_app(qvars, context['head'])
     qvars = res[0]
     head = res[1]
-    for term in res[2]:
-        body_terms.append(term)
-    body = z3.And(body_terms)
+    for expr in res[2]:
+        body_exprs.append(expr)
+    if len(body_exprs) > 1:
+        body = z3.And(body_exprs)
+    elif len(body_exprs) == 1:
+        body = body_exprs[0]
+    else:
+        raise Exception('unexpected empty clause body')
     query = head.decl().kind() != z3.Z3_OP_UNINTERPRETED
     implies = z3.Implies(body, head)
 
@@ -137,7 +250,7 @@ def print_clause(clause):
     print ')'
 
 
-def parse_with_z3(file):
+def parse_with_z3(file, check_only):
     t = z3.With(
         z3.Tactic("horn-simplify"),
         "xform.inline_eager",
@@ -154,34 +267,50 @@ def parse_with_z3(file):
     assertions = z3.parse_smt2_file(file)
     goals = z3.Goal()
     goals.add(assertions)
-    simplified = t(goals)
-    clauses = []
-    queries = []
 
-    for clause, is_query in [fix_clause(clause) for clause in simplified[0]]:
-        if is_query:
-            queries.append(clause)
-        else:
-            clauses.append(clause)
+    if check_only:
+        check_chcs(goals)
+        print "success"
+    else:
+        simplified = t(goals)
+        clauses = []
+        queries = []
+        for clause, is_query in [
+            fix_clause(clause) for clause in simplified[0]
+        ]:
+            if is_query:
+                queries.append(clause)
+            else:
+                clauses.append(clause)
 
-    for query in queries:
-        print('(set-logic HORN)')
-        for clause in clauses:
-            print_clause(clause)
-        print_clause(query)
-        print '(check-sat)'
-        print '(exit)'
+        for query in queries:
+            these_clauses = []
+            for clause in clauses:
+                these_clauses.append(clause)
+            these_clauses.append(query)
+            goals = z3.Solver()
+            goals.add(these_clauses)
+            print('(set-logic HORN)')
+            print goals.sexpr()
+            print '(check-sat)'
+            print '(exit)'
+            try:
+                check_chcs(these_clauses)
+            except Exception, blah:
+                raise Exception(
+                    "Result of formatting is ill-formed:\n{}".format(blah)
+                )
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description='Translate horn problems from SMT2 to other formats.'
+        description='Formats and checks CHC benchmarks.'
     )
     parser.add_argument(
-        '--output-format',
-        dest='output_format',
-        metavar='FORMAT',
-        help='Output format: mcmt',
+        '--check',
+        dest='check',
+        metavar='True/False',
+        help='Checks that the input file(s) respect the CHC-COMP format.',
     )
     parser.add_argument(
         'file',
@@ -191,4 +320,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     for file in args.file:
-        parse_with_z3(file)
+        try:
+            parse_with_z3(file, args.check)
+        except Exception, text:
+            print 'Error on file {}'.format(file)
+            print text
+            exit(2)
