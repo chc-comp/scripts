@@ -1,2 +1,1 @@
-# scripts
-Scripts used in CHC-COMP
+Scripts used in CHC-COMP.
