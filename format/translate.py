@@ -137,31 +137,35 @@ def fix_expr(expr):
         raise Exception('unimplemented')
 
 
-def get_conjuncts(qvars, conjunction):
+def get_conjuncts(subs, conjunction):
     if conjunction.decl().kind() == z3.Z3_OP_AND:
         return [
-            z3.substitute_vars(kid, * qvars)
+            z3.substitute(kid, subs)
             for kid in conjunction.children()
         ]
     else:
-        return [z3.substitute_vars(conjunction, * qvars)]
+        return [z3.substitute(conjunction, subs)]
+
 
 
 def extract_implies(clause):
     clause = fix_quantifier(clause)
-    qvars = [
-        z3.Const(clause.var_name(n), clause.var_sort(n)) for n in range(
-            0, clause.num_vars()
-        )
-    ]
+
+    subs=[]
+    for i, var in enumerate(util.find_vars(clause)):
+        subs.append((var, z3.Const('c!!'+str(i), var.sort())))
+    if len(subs)==0:
+        assert(clause.num_vars()==1)
+        subs.append((z3.Var(0, clause.var_sort(0)),
+                    z3.Const(clause.var_name(0), clause.var_sort(0))))
 
     implies = fix_implies(clause.body())
     kids = implies.children()
-    body = get_conjuncts(qvars, kids[0])
-    head = z3.substitute_vars(kids[1], * qvars)
+    body = get_conjuncts(subs, kids[0])
+    head = z3.substitute(kids[1], *subs)
 
     return {
-        'qvars': qvars,
+        'qvars': [v[1] for v in subs],
         'body': body,
         'head': head,
     }
