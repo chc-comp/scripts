@@ -1,23 +1,20 @@
 import z3
 import argparse
 from sets import Set
+import util
 
 
 def i_formula(expr):
-    to_check = [expr]
-    while True:
-        if len(to_check) == 0:
-            return True
-        expr = to_check.pop()
+    list = []
 
-        if z3.is_var(expr) or z3.is_const(expr):
-            ()
-        else:
+    def i_formula_node(expr):
+        if not z3.is_var(expr) and not z3.is_const(expr):
             decl = expr.decl()
             if decl.kind() == z3.Z3_OP_UNINTERPRETED:
-                return False
-            else:
-                to_check = to_check + expr.children()
+                list.append(False)
+    util.foreach_expr(i_formula_node, expr)
+
+    return all(list)
 
 
 def u_predicate(expr):
@@ -72,12 +69,12 @@ def check_chc_head(expr):
                     )
                 known_vars.add(z3.get_var_index(kid))
         return False
-    elif not i_formula(expr):
-        raise Exception(
-            "illegal head: {}".expr(expr.sexpr())
-        )
-    else:
+    elif expr == z3.BoolVal(False):
         return True
+    else:
+        raise Exception(
+            "illegal head: {}".format(expr.sexpr())
+        )
 
 
 # Return true if the clause is a query.
@@ -103,6 +100,11 @@ def check_chcs(exprs):
         is_query = check_chc(expr)
         if is_query:
             query_count += 1
+        elif not is_query and query_count > 0:
+            raise Exception(
+                "Illegal benchmark: " +
+                "query clause is not the last clause"
+            )
     if query_count != 1:
         raise Exception(
             "illegal benchmark: " +
@@ -117,7 +119,7 @@ def fix_quantifier(clause):
         ), 'expected universal quantifier, found {}'.format(clause.sexpr())
         return clause
     else:
-        return z3.ForAll(z3.Const("unused", z3.IntSort()), clause)
+        return z3.ForAll(z3.Const("CHC-COMP::unused", z3.IntSort()), clause)
 
 
 def fix_implies(implies):
