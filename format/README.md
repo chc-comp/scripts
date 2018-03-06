@@ -11,6 +11,25 @@ To setup z3:
 pip installl -r requirements.txt
 ```
 
+## Usage
+
+```
+$ python translate.py -h
+usage: translate.py [-h] [--check True/False] [--out_dir DIR] file [file ...]
+
+Formats and checks CHC benchmarks.
+
+positional arguments:
+  file                Files to process
+
+optional arguments:
+  -h, --help          show this help message and exit
+  --check True/False  Checks that the input file(s) respect the CHC-COMP
+                      format.
+  --out_dir DIR       Output directory to put the result files in (stdout if
+                      None).
+```
+
 To format a benchmark:
 
 ```
@@ -25,20 +44,25 @@ $ cat test/inline_test_00.smt2
 
 $ python translate.py test/inline_test_00.smt2
 (set-logic HORN)
-(assert
-  (forall ((A Int)) (=> (and (not (<= A 0))) (p A)))
-)
-(assert
-  (forall ((A Int)) (=> (and (p A)) (q A)))
-)
-(assert
-  (forall ((A Int)) (=> (and (q A) (<= A 0)) false))
-)
+(declare-fun p (Int) Bool)
+(declare-fun q (Int) Bool)
+(assert (forall ((A Int)) (=> (not (<= A 0)) (p A))))
+(assert (forall ((x Int)) (=> (p x) (q x))))
+(assert (forall ((A Int)) (=> (and (q A) (<= A 0)) false)))
+
 (check-sat)
 (exit)
 ```
 
-Use `--check True` to check if a benchmark is legal:
+Use `--out_dir DIR` to write the result to files in `DIR`:
+
+```
+$ python translate.py --out_dir . test/multi_query.smt2
+Writing to ./multi_query_000.smt2
+Writing to ./multi_query_001.smt2
+```
+
+Use `--check True` to check if the input file is legal:
 
 ```
 $ python translate.py --check True test/multi_query.smt2
