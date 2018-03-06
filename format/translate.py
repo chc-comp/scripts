@@ -5,16 +5,15 @@ import util
 
 
 def i_formula(expr):
-    list = []
-
-    def i_formula_node(expr):
-        if not z3.is_var(expr) and not z3.is_const(expr):
-            decl = expr.decl()
-            if decl.kind() == z3.Z3_OP_UNINTERPRETED:
-                list.append(False)
-    util.foreach_expr(i_formula_node, expr)
-
-    return all(list)
+    # list = []
+    # def i_formula_node(expr):
+    #     if not z3.is_var(expr) and not z3.is_const(expr):
+    #         decl = expr.decl()
+    #         if decl.kind() == z3.Z3_OP_UNINTERPRETED:
+    #             list.append(False)
+    # util.foreach_expr(i_formula_node, expr)
+    # return all(list)
+    return True
 
 
 def u_predicate(expr):
@@ -33,14 +32,14 @@ def check_chc_tail(expr):
     if decl is None or decl.kind() != z3.Z3_OP_AND:
         if not u_predicate(expr) and not i_formula(expr):
             raise Exception(
-                "illegal chc tail: expected u_predicate or i_formula, " +
+                "Illegal chc tail: expected u_predicate or i_formula, " +
                 "got {}".format(expr.sexpr())
             )
     else:
         for kid in expr.children():
             if not u_predicate(kid) and not i_formula(kid):
                 raise Exception(
-                    "illegal conjunct in tail: {}".format(kid.sexpr())
+                    "Illegal conjunct in tail: {}".format(kid.sexpr())
                 )
     return True
 
@@ -54,15 +53,15 @@ def check_chc_head(expr):
             for kid in expr.children():
                 if not z3.is_var(kid):
                     raise Exception(
-                        "illegal head: " +
-                        "argument {} is not a variable {}".format(
-                            expr.sexpr(), kid.sexpr()
+                        "Illegal head: " +
+                        "argument {} is not a variable in {}".format(
+                            kid.sexpr(), expr.sexpr()
                         )
                     )
                 index = z3.get_var_index(kid)
                 if index in known_vars:
                     raise Exception(
-                        "illegal head: non-distinct arguments, " +
+                        "Illegal head: non-distinct arguments, " +
                         "{} is used twice in {}".format(
                             kid.sexpr(), expr.sexpr()
                         )
@@ -73,24 +72,33 @@ def check_chc_head(expr):
         return True
     else:
         raise Exception(
-            "illegal head: {}".format(expr.sexpr())
+            "Illegal head: {}".format(expr.sexpr())
+        )
+
+
+def get_implication_kids(expr, quant_okay):
+    if z3.is_quantifier(expr) and expr.is_forall():
+        if quant_okay:
+            return get_implication_kids(expr.body(), False)
+        else:
+            raise Exception(
+                "Illegal chc: " +
+                "nested foralls"
+            )
+    elif expr.decl().kind() == z3.Z3_OP_IMPLIES:
+        return expr.children()
+    else:
+        raise Exception(
+            "Illegal chc: " +
+            "expected forall or implication, got {}".format(expr.sexpr())
         )
 
 
 # Return true if the clause is a query.
 def check_chc(expr):
-    if not z3.is_quantifier(expr) or not expr.is_forall():
-        raise Exception(
-            "illegal chc: expected forall, got {}".format(expr.sexpr())
-        )
-    implies = expr.body()
-    decl = implies.decl()
-    if decl is None or decl.kind() != z3.Z3_OP_IMPLIES:
-        raise Exception(
-            "illegal chc: expected implication, got {}".format(implies.sexpr())
-        )
-    check_chc_tail(implies.children()[0])
-    is_query = check_chc_head(implies.children()[1])
+    kids = get_implication_kids(expr, True)
+    check_chc_tail(kids[0])
+    is_query = check_chc_head(kids[1])
     return is_query
 
 
@@ -107,19 +115,25 @@ def check_chcs(exprs):
             )
     if query_count != 1:
         raise Exception(
-            "illegal benchmark: " +
+            "Illegal benchmark: " +
             "expected one query clause, found {}".format(query_count)
         )
 
 
-def fix_quantifier(clause):
-    if z3.is_quantifier(clause):
+def fix_quantifier(expr):
+    if z3.is_quantifier(expr):
         assert(
-            clause.is_forall()
-        ), 'expected universal quantifier, found {}'.format(clause.sexpr())
-        return clause
+            expr.is_forall()
+        ), 'expected universal quantifier, found {}'.format(expr.sexpr())
+        qvars = [
+            z3.Const(expr.var_name(n), expr.var_sort(n)) for n in range(
+                0, expr.num_vars()
+            )
+        ]
+        implies = fix_implies(expr.body())
+        return qvars, implies
     else:
-        return z3.ForAll(z3.Const("CHC-COMP::unused", z3.IntSort()), clause)
+        return [], expr
 
 
 def fix_implies(implies):
@@ -148,14 +162,7 @@ def get_conjuncts(qvars, conjunction):
 
 
 def extract_implies(clause):
-    clause = fix_quantifier(clause)
-    qvars = [
-        z3.Const(clause.var_name(n), clause.var_sort(n)) for n in range(
-            0, clause.num_vars()
-        )
-    ]
-
-    implies = fix_implies(clause.body())
+    qvars, implies = fix_quantifier(clause)
     kids = implies.children()
     body = get_conjuncts(qvars, kids[0])
     head = z3.substitute_vars(kids[1], * qvars)
