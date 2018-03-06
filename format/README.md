@@ -57,23 +57,25 @@ $ python translate.py test/inline_test_00.smt2
 Use `--out_dir DIR` to write the result to files in `DIR`:
 
 ```
-$ python translate.py --out_dir . test/multi_query.smt2
+$ python translate.py --out_dir . test/check_err/multi_query.smt2
 Writing to ./multi_query_000.smt2
 Writing to ./multi_query_001.smt2
+Writing to ./multi_query_002.smt2
 ```
 
 Use `--check True` to check if the input file is legal:
 
 ```
 $ python translate.py --check True test/multi_query.smt2
-Error on file test/multi_query.smt2
-illegal head: non-distinct arguments, (:var 2) is used twice in (unknown (:var 2) (:var 2))
+Error on file test/check_errs/multi_query.smt2
+Illegal benchmark: expected one query clause, found 3
 
 $ python translate.py --check True test/cst_in_head.smt2
-Error on file test/cst_in_head.smt2
-illegal chc: expected forall, got (not (exists ((|$alpha-2:$$tmp::2| Int))
-       (and (|fail$unknown:3| |$alpha-2:$$tmp::2|))))
+Error on file test/check_errs/cst_in_head.smt2
+Illegal head: argument 42 is not a variable in (pred 42 (:var 0))
 
 $ python translate.py test/cst_in_head.smt2 > test.smt2 ; python2.7 translate.py --check True test.smt2
 success
 ```
+
+The last line is actually redundant since the script systematically checks that the clauses it produces are correct.
