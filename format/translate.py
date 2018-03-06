@@ -246,7 +246,7 @@ def fix_clause(clause):
     return (quantified, query)
 
 
-def parse_with_z3(file, out_dir, check_only):
+def parse_with_z3(file, out_dir, check_only, fixedpoint):
     lst = file.split('/')
     tmp = lst.pop()
     lst = tmp.split('.')
@@ -269,7 +269,13 @@ def parse_with_z3(file, out_dir, check_only):
         "xform.compress_unbound",
         False,
     )
-    assertions = z3.parse_smt2_file(file)
+    if fixedpoint:
+        f = z3.Fixedpoint()
+        query = f.parse_file(file)
+        f.add_rule(False, query[0])
+        assertions = z3.And(f.get_rules())
+    else:
+        assertions = z3.parse_smt2_file(file)
     goals = z3.Goal()
     goals.add(assertions)
 
@@ -335,6 +341,12 @@ if __name__ == "__main__":
         help='Output directory to put the result files in (stdout if None).',
     )
     parser.add_argument(
+        '--fixedpoint',
+        dest='fixedpoint',
+        action='store_true',
+        help='Input files are in fixedpoint format.',
+    )
+    parser.add_argument(
         'file',
         nargs='+',
         help='Files to process'
@@ -346,7 +358,7 @@ if __name__ == "__main__":
 
     for file in args.file:
         try:
-            parse_with_z3(file, args.out_dir, args.check)
+            parse_with_z3(file, args.out_dir, args.check, args.fixedpoint)
         except Exception, text:
             print 'Error on file {}'.format(file)
             print text
