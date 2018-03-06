@@ -244,13 +244,16 @@ def fix_clause(clause):
     return (quantified, query)
 
 
-def print_clause(clause):
-    print '(assert'
-    print '  {}'.format(clause.sexpr())
-    print ')'
+def parse_with_z3(file, out_dir, check_only):
+    lst = file.split('/')
+    tmp = lst.pop()
+    lst = tmp.split('.')
+    base_name = lst[0]
+    assert len(lst) > 0
+    if len(lst) > 1:
+        for stuff in lst[1:-1]:
+            base_name = base_name + '.' + stuff
 
-
-def parse_with_z3(file, check_only):
     t = z3.With(
         z3.Tactic("horn-simplify"),
         "xform.inline_eager",
@@ -283,17 +286,28 @@ def parse_with_z3(file, check_only):
             else:
                 clauses.append(clause)
 
-        for query in queries:
+        for cnt, query in enumerate(queries):
             these_clauses = []
             for clause in clauses:
                 these_clauses.append(clause)
             these_clauses.append(query)
             goals = z3.Solver()
             goals.add(these_clauses)
-            print('(set-logic HORN)')
-            print goals.sexpr()
-            print '(check-sat)'
-            print '(exit)'
+            if out_dir is None:
+                print('(set-logic HORN)')
+                print goals.sexpr()
+                print '(check-sat)'
+                print '(exit)'
+            else:
+                out_file = "{}/{}_{:0>3}.smt2".format(
+                    out_dir, base_name, cnt
+                )
+                print 'Writing to {}'.format(out_file)
+                out_file = open(out_file, mode='w')
+                out_file.write('(set-logic HORN)\n\n')
+                out_file.write(goals.sexpr())
+                out_file.write('\n\n(check-sat)\n')
+                out_file.write('(exit)\n')
             try:
                 check_chcs(these_clauses)
             except Exception, blah:
@@ -313,15 +327,24 @@ if __name__ == "__main__":
         help='Checks that the input file(s) respect the CHC-COMP format.',
     )
     parser.add_argument(
+        '--out_dir',
+        dest='out_dir',
+        metavar='DIR',
+        help='Output directory to put the result files in (stdout if None).',
+    )
+    parser.add_argument(
         'file',
         nargs='+',
         help='Files to process'
     )
     args = parser.parse_args()
 
+    if args.out_dir == "None":
+        args.out_dir = None
+
     for file in args.file:
         try:
-            parse_with_z3(file, args.check)
+            parse_with_z3(file, args.out_dir, args.check)
         except Exception, text:
             print 'Error on file {}'.format(file)
             print text
