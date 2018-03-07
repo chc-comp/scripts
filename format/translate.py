@@ -1,7 +1,11 @@
 import z3
 import argparse
 from sets import Set
-import util
+
+
+class InternalExc(Exception):
+    def __init__(self, arg):
+        self.args = arg
 
 
 def i_formula(expr):
@@ -31,14 +35,14 @@ def check_chc_tail(expr):
     decl = expr.decl()
     if decl is None or decl.kind() != z3.Z3_OP_AND:
         if not u_predicate(expr) and not i_formula(expr):
-            raise Exception(
+            raise InternalExc(
                 "Illegal chc tail: expected u_predicate or i_formula, " +
                 "got {}".format(expr.sexpr())
             )
     else:
         for kid in expr.children():
             if not u_predicate(kid) and not i_formula(kid):
-                raise Exception(
+                raise InternalExc(
                     "Illegal conjunct in tail: {}".format(kid.sexpr())
                 )
     return True
@@ -52,7 +56,7 @@ def check_chc_head(expr):
             known_vars = Set([])
             for kid in expr.children():
                 if not z3.is_var(kid):
-                    raise Exception(
+                    raise InternalExc(
                         "Illegal head: " +
                         "argument {} is not a variable in {}".format(
                             kid.sexpr(), expr.sexpr()
@@ -60,7 +64,7 @@ def check_chc_head(expr):
                     )
                 index = z3.get_var_index(kid)
                 if index in known_vars:
-                    raise Exception(
+                    raise InternalExc(
                         "Illegal head: non-distinct arguments, " +
                         "{} is used twice in {}".format(
                             kid.sexpr(), expr.sexpr()
@@ -71,7 +75,7 @@ def check_chc_head(expr):
     elif expr == z3.BoolVal(False):
         return True
     else:
-        raise Exception(
+        raise InternalExc(
             "Illegal head: {}".format(expr.sexpr())
         )
 
@@ -81,14 +85,14 @@ def get_implication_kids(expr, quant_okay):
         if quant_okay:
             return get_implication_kids(expr.body(), False)
         else:
-            raise Exception(
+            raise InternalExc(
                 "Illegal chc: " +
                 "nested foralls"
             )
     elif expr.decl().kind() == z3.Z3_OP_IMPLIES:
         return expr.children()
     else:
-        raise Exception(
+        raise InternalExc(
             "Illegal chc: " +
             "expected forall or implication, got {}".format(expr.sexpr())
         )
@@ -109,15 +113,22 @@ def check_chcs(exprs):
         if is_query:
             query_count += 1
         elif not is_query and query_count > 0:
-            raise Exception(
+            raise InternalExc(
                 "Illegal benchmark: " +
                 "query clause is not the last clause"
             )
     if query_count != 1:
-        raise Exception(
+        raise InternalExc(
             "Illegal benchmark: " +
             "expected one query clause, found {}".format(query_count)
         )
+
+
+def fix_implies(implies):
+    if implies.decl().kind() != z3.Z3_OP_IMPLIES:
+        return z3.Implies(z3.BoolVal(True), implies)
+    else:
+        return implies
 
 
 def fix_quantifier(expr):
@@ -130,17 +141,9 @@ def fix_quantifier(expr):
                 0, expr.num_vars()
             )
         ]
-        implies = fix_implies(expr.body())
-        return qvars, implies
+        return qvars, fix_implies(expr.body())
     else:
-        return [], expr
-
-
-def fix_implies(implies):
-    if implies.decl().kind() != z3.Z3_OP_IMPLIES:
-        return z3.Implies(z3.BoolVal(True), implies)
-    else:
-        return implies
+        return [], fix_implies(expr)
 
 
 def fix_expr(expr):
@@ -148,7 +151,7 @@ def fix_expr(expr):
         kids = [fix_expr(kid) for kid in expr.children()]
         z3.mk_and(kids)
     else:
-        raise Exception('unimplemented')
+        raise InternalExc('unimplemented')
 
 
 def get_conjuncts(qvars, conjunction):
@@ -172,17 +175,6 @@ def extract_implies(clause):
         'body': body,
         'head': head,
     }
-
-
-def print_context(context, pref=''):
-    print '{}forall {}'.format(
-        pref, ', '.join(
-            ['{}: {}'.format(qv, qv.sort()) for qv in context['qvars']]
-        )
-    )
-    for conjunct in context['body']:
-        print '{}   {}'.format(pref, conjunct)
-    print '{}=> {}'.format(pref, context['head'])
 
 
 def get_fresh(qvars, sort):
@@ -242,15 +234,14 @@ def fix_clause(clause):
     elif len(body_exprs) == 1:
         body = body_exprs[0]
     else:
-        raise Exception('unexpected empty clause body')
+        raise InternalExc('unexpected empty clause body')
     query = head.decl().kind() != z3.Z3_OP_UNINTERPRETED
     implies = z3.Implies(body, head)
 
-    quantified = z3.ForAll(qvars, implies)
-
-    # print(quantified)
-
-    return (quantified, query)
+    if len(qvars) == 0:
+        return (implies, query)
+    else:
+        return (z3.ForAll(qvars, implies), query)
 
 
 def parse_with_z3(file, out_dir, check_only):
@@ -287,6 +278,11 @@ def parse_with_z3(file, out_dir, check_only):
         simplified = t(goals)
         clauses = []
         queries = []
+        if len(simplified) == 0:
+            raise InternalExc(
+                "Empty benchmark, " +
+                "possibly because it is solved trivial by pre-processing"
+            )
         for clause, is_query in [
             fix_clause(clause) for clause in simplified[0]
         ]:
@@ -303,7 +299,7 @@ def parse_with_z3(file, out_dir, check_only):
             goals = z3.Solver()
             goals.add(these_clauses)
             if out_dir is None:
-                print('(set-logic HORN)')
+                print('(set-logic HORN)\n')
                 print goals.sexpr()
                 print '(check-sat)'
                 print '(exit)'
@@ -319,8 +315,8 @@ def parse_with_z3(file, out_dir, check_only):
                 out_file.write('(exit)\n')
             try:
                 check_chcs(these_clauses)
-            except Exception, blah:
-                raise Exception(
+            except InternalExc, blah:
+                raise InternalExc(
                     "Result of formatting is ill-formed:\n{}".format(blah)
                 )
 
@@ -354,7 +350,7 @@ if __name__ == "__main__":
     for file in args.file:
         try:
             parse_with_z3(file, args.out_dir, args.check)
-        except Exception, text:
+        except InternalExc, text:
             print 'Error on file {}'.format(file)
-            print text
+            print text.args
             exit(2)
