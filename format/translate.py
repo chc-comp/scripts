@@ -251,7 +251,7 @@ def fix_clause(clause):
     return (quantified, query)
 
 
-def parse_with_z3(file, out_dir, check_only, fixedpoint):
+def parse_with_z3(file, out_dir, check_only, fixedpoint, preprocess):
     lst = file.split('/')
     tmp = lst.pop()
     lst = tmp.split('.')
@@ -264,15 +264,15 @@ def parse_with_z3(file, out_dir, check_only, fixedpoint):
     t = z3.With(
         z3.Tactic("horn-simplify"),
         "xform.inline_eager",
-        False,
+        preprocess,
         "xform.inline_linear",
-        False,
+        preprocess,
         "xform.slice",
-        False,
+        preprocess,
         "xform.coi",
-        False,
+        preprocess,
         "xform.compress_unbound",
-        False,
+        preprocess,
     )
     if fixedpoint:
         f = z3.Fixedpoint()
@@ -346,10 +346,16 @@ if __name__ == "__main__":
         help='Output directory to put the result files in (stdout if None).',
     )
     parser.add_argument(
-        '--fixedpoint',
-        dest='fixedpoint',
+        '--fp',
+        dest='fp',
         action='store_true',
         help='Input files are in fixedpoint format.',
+    )
+    parser.add_argument(
+        '--pp',
+        dest='pp',
+        action='store_true',
+        help='Preprocess input.',
     )
     parser.add_argument(
         'file',
@@ -363,10 +369,7 @@ if __name__ == "__main__":
 
     for file in args.file:
         try:
-            parse_with_z3(file, args.out_dir, args.check, args.fixedpoint)
+            parse_with_z3(file, args.out_dir, args.check, args.fp, args.pp)
         except Exception, text:
-            print 'Error on file {}'.format(file)
-            print text
-            exit(2)
             print 'Error on file: {}'.format(file)
             traceback.print_exc()
