@@ -244,30 +244,24 @@ def fix_clause(clause):
         return (z3.ForAll(qvars, implies), query)
 
 
-def parse_with_z3(file, out_dir, check_only):
-    lst = file.split('/')
-    tmp = lst.pop()
-    lst = tmp.split('.')
-    base_name = lst[0]
-    assert len(lst) > 0
-    if len(lst) > 1:
-        for stuff in lst[1:-1]:
-            base_name = base_name + '.' + stuff
+def chc_translate(assertions, out_dir, base_name, check_only, pp=False):
+    """
+    Translates assertions into CHC-COMP format
+    """
 
     t = z3.With(
         z3.Tactic("horn-simplify"),
         "xform.inline_eager",
-        False,
+        pp,
         "xform.inline_linear",
-        False,
+        pp,
         "xform.slice",
-        False,
+        pp,
         "xform.coi",
-        False,
+        pp,
         "xform.compress_unbound",
-        False,
-    )
-    assertions = z3.parse_smt2_file(file)
+        pp,)
+
     goals = z3.Goal()
     goals.add(assertions)
 
@@ -320,6 +314,31 @@ def parse_with_z3(file, out_dir, check_only):
                     "Result of formatting is ill-formed:\n{}".format(blah)
                 )
 
+def parse_smt2_file (fname):
+    return z3.parse_smt2_file(fname)
+
+def parse_fp_file (fname):
+    fp = z3.Fixedpoint()
+    queries = fp.parse_file(file)
+    rules = fp.get_rules()
+
+    # assuming that query does not have any free variables that need
+    # to be quantified
+    for q in queries:
+        rules.extend(Implies(q, False))
+
+    return z3.And(rules)
+
+
+def get_base_name(fname):
+    lst = fname.split('/')
+    tmp = lst.pop()
+    lst = tmp.split('.')
+    base_name = lst[0]
+    assert len(lst) > 0
+    if len(lst) > 1:
+        for stuff in lst[1:-1]:
+            base_name = base_name + '.' + stuff
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -342,6 +361,18 @@ if __name__ == "__main__":
         nargs='+',
         help='Files to process'
     )
+    parser.add_argument(
+        '--pp',
+        dest='pp', action='store_true',
+        help='Enable pre-processing during simplification',
+        default=False)
+
+    parser.add_argument(
+        '--fp',
+        dest='fp', action='store_true',
+        help='Used fixedpoint extension to parse the input file',
+        default=False)
+
     args = parser.parse_args()
 
     if args.out_dir == "None":
@@ -349,7 +380,14 @@ if __name__ == "__main__":
 
     for file in args.file:
         try:
-            parse_with_z3(file, args.out_dir, args.check)
+            if args.fp:
+                assertions = parse_fp_file(file)
+            else:
+                assertions = parse_smt2_file(file)
+
+            base_name = get_base_name(file)
+            chc_translate(assertions, args.out_dir, base_name,
+                          args.check, args.pp)
         except InternalExc, text:
             print 'Error on file {}'.format(file)
             print text.args
