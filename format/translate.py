@@ -276,9 +276,11 @@ def parse_with_z3(file, out_dir, check_only, fixedpoint, preprocess):
     )
     if fixedpoint:
         f = z3.Fixedpoint()
-        query = f.parse_file(file)
-        f.add_rule(False, query[0])
-        assertions = z3.And(f.get_rules())
+        queries = f.parse_file(file)
+        rules = f.get_rules()
+        for q in queries:
+            rules.push(fix_quantifier(z3.Implies(q, False)))
+        assertions = z3.And(rules)
     else:
         assertions = z3.parse_smt2_file(file)
     goals = z3.Goal()
