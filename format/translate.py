@@ -2,6 +2,7 @@ import z3
 import argparse
 from sets import Set
 import util
+import traceback
 
 
 def i_formula(expr):
@@ -367,3 +368,5 @@ if __name__ == "__main__":
             print 'Error on file {}'.format(file)
             print text
             exit(2)
+            print 'Error on file: {}'.format(file)
+            traceback.print_exc()
