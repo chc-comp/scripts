@@ -8,7 +8,7 @@ Given SMT-LIB horn clauses, attempts to format the clauses to the CHC-COMP forma
 To setup z3:
 
 ```
-pip installl -r requirements.txt
+pip install -r requirements.txt
 ```
 
 ## Usage
