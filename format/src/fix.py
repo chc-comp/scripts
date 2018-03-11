@@ -1,6 +1,8 @@
 import z3
 from sets import Set
 
+from util import Exc, is_pred_app, make_and
+
 
 def fix_implies(implies):
     if implies.decl().kind() != z3.Z3_OP_IMPLIES:
@@ -24,14 +26,6 @@ def fix_quantifier(expr):
         return [], fix_implies(expr)
 
 
-def fix_expr(expr):
-    if expr.decl().kind == z3.Z3_OP_AND:
-        kids = [fix_expr(kid) for kid in expr.children()]
-        z3.mk_and(kids)
-    else:
-        raise Exception('unimplemented')
-
-
 def get_conjuncts(qvars, conjunction):
     if conjunction.decl().kind() == z3.Z3_OP_AND:
         return [
@@ -45,12 +39,12 @@ def get_conjuncts(qvars, conjunction):
 def extract_implies(clause):
     qvars, implies = fix_quantifier(clause)
     kids = implies.children()
-    body = get_conjuncts(qvars, kids[0])
+    tail = get_conjuncts(qvars, kids[0])
     head = z3.substitute_vars(kids[1], * qvars)
 
     return {
         'qvars': qvars,
-        'body': body,
+        'tail': tail,
         'head': head,
     }
 
@@ -84,37 +78,53 @@ def fix_pred_app(qvars, expr):
             kids.append(fresh)
         expr = expr.decl()(kids)
 
-    return (qvars, expr, terms)
+    return (qvars, expr, terms, expr.decl())
 
 
-def fix_clause(clause):
+def fix_clause(clause, pred_decls):
     context = extract_implies(clause)
     # print 'working on'
     # print_context(context, pref='  ')
 
     qvars = context['qvars']
-    body_exprs = []
-    for expr in context['body']:
-        # res = fix_pred_app(qvars, expr)
-        # qvars = res[0]
-        # body_exprs.append(res[1])
-        # for expr in res[2]:
-        #     body_exprs.append(expr)
-        body_exprs.append(expr)
+    tail = []
+    tail_atoms = []
+    for expr in context['tail']:
+        if is_pred_app(expr):
+            res = fix_pred_app(qvars, expr)
+            qvars = res[0]
+            tail.append(res[1])
+            for expr in res[2]:
+                tail_atoms.append(expr)
+            pred_decls.add(res[3])
+        else:
+            tail_atoms.append(expr)
 
-    res = fix_pred_app(qvars, context['head'])
-    qvars = res[0]
-    head = res[1]
-    for expr in res[2]:
-        body_exprs.append(expr)
-    if len(body_exprs) > 1:
-        body = z3.And(body_exprs)
-    elif len(body_exprs) == 1:
-        body = body_exprs[0]
-    else:
-        raise Exception('unexpected empty clause body')
+    head = z3.BoolVal(False)
+
+    if is_pred_app(context['head']):
+        res = fix_pred_app(qvars, context['head'])
+        qvars = res[0]
+        head = res[1]
+        pred_decls.add(res[3])
+        for atom in res[2]:
+            if not is_pred_app(atom):
+                raise Exc(
+                    'Unexpected fix_pred_app result'
+                )
+            tail_atoms.append(atom)
+    elif not z3.is_false(context['head']):
+        tail_atoms.append(
+            z3.Not(context['head'])
+        )
+
+    if len(tail_atoms) > 1:
+        tail.append(z3.And(tail_atoms))
+    elif len(tail_atoms) == 1:
+        tail.append(tail_atoms[0])
+
     query = head.decl().kind() != z3.Z3_OP_UNINTERPRETED
-    implies = z3.Implies(body, head)
+    implies = z3.Implies(make_and(tail), head)
 
     if len(qvars) == 0:
         return (implies, query)

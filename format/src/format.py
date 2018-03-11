@@ -1,7 +1,9 @@
 import sys
 import z3
 import argparse
+from sets import Set
 
+from util import Exc, clause_to_str, pred_decl_to_str
 import check
 import fix
 
@@ -41,25 +43,27 @@ def parse_with_z3(file, out_dir, check_only):
         clauses = []
         queries = []
         if len(simplified) == 0:
-            raise Exception(
+            raise Exc(
                 'Empty benchmark, ' +
                 'possibly because it is solved trivial by pre-processing'
             )
 
+        pred_decls = Set()
+
         for index, clause in enumerate(simplified[0]):
             try:
-                clause, is_query = fix.fix_clause(clause)
+                clause, is_query = fix.fix_clause(clause, pred_decls)
                 if is_query:
                     queries.append(clause)
                 else:
                     clauses.append(clause)
-            except Exception as e:
-                raise Exception(
+            except Exc as e:
+                raise Exc(
                     'While fixing clause {}:\n{}'.format(index, e.args)
                 )
 
         if len(queries) < 1:
-            raise Exception(
+            raise Exc(
                 'No query clause found'
             )
 
@@ -68,28 +72,34 @@ def parse_with_z3(file, out_dir, check_only):
             for clause in clauses:
                 these_clauses.append(clause)
             these_clauses.append(query)
-            goals = z3.Solver()
-            goals.add(these_clauses)
-            if out_dir is None:
-                print('(set-logic HORN)\n')
-                print(goals.sexpr())
-                print('(check-sat)')
-                print('(exit)')
-            else:
+
+            writer = sys.stdout
+
+            if out_dir is not None:
                 out_file = "{}/{}_{:0>3}.smt2".format(
                     out_dir, base_name, cnt
                 )
                 print('Writing to {}'.format(out_file))
-                out_file = open(out_file, mode='w')
-                out_file.write('(set-logic HORN)\n\n')
-                out_file.write(goals.sexpr())
-                out_file.write('\n\n(check-sat)\n')
-                out_file.write('(exit)\n')
+                writer = open(out_file, mode='w')
+
+            writer.write('(set-logic HORN)\n\n')
+            for decl in pred_decls:
+                writer.write(pred_decl_to_str(decl))
+                writer.write('\n')
+            writer.write('\n')
+            for clause in these_clauses:
+                writer.write('(assert\n')
+                writer.write(clause_to_str(clause, '  '))
+                writer.write('\n)\n')
+            writer.write('\n')
+            writer.write('(check-sat)\n')
+            writer.write('(exit)\n')
+
             try:
                 check.check_chcs(these_clauses)
-            except check.CheckExc as e:
-                raise Exception(
-                    "Result of formatting is ill-formed:\n{}".format(e.args)
+            except Exc as e:
+                raise Exc(
+                    "Result of formatting is ill-formed:\n{}".format(e)
                 )
 
 
@@ -122,7 +132,7 @@ if __name__ == "__main__":
     for file in args.file:
         try:
             parse_with_z3(file, args.out_dir, args.check)
-        except Exception as e:
+        except Exc as e:
             print('Error on file {}'.format(file))
             print(e)
             sys.exit(2)
