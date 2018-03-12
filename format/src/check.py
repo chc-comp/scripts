@@ -16,10 +16,12 @@ def u_predicate(expr):
         for index, kid in enumerate(expr.children()):
             if not z3.is_var(kid):
                 raise Exc(
-                    "Argument {} of application of {} ".format(
-                        index, expr.decl().name()
-                    ) +
-                    "is not a variable: {}".format(kid.sexpr())
+                    (
+                        'Argument {} of application of {} '
+                        'is not a variable: {}'
+                    ).format(
+                        index, expr.decl().name(), kid.sexpr()
+                    )
                 )
         return True
     else:
@@ -32,15 +34,16 @@ def get_implication_kids(expr, quant_okay):
             return get_implication_kids(expr.body(), False)
         else:
             raise Exc(
-                "Illegal chc: " +
-                "nested foralls"
+                'Illegal chc: nested foralls'
             )
     elif expr.decl().kind() == z3.Z3_OP_IMPLIES:
         return expr.children()
     else:
         raise Exc(
-            "Illegal chc: " +
-            "expected forall or implication, got {}".format(expr.sexpr())
+            (
+                'Illegal chc: '
+                'expected forall or implication, got {}'
+            ).format(expr.sexpr())
         )
 
 
@@ -52,8 +55,10 @@ def check_chc_tail(expr):
     elif expr.decl().kind() != z3.Z3_OP_AND:
         if not u_predicate(expr) and not i_formula(expr):
             raise Exc(
-                "Illegal chc tail: expected u_predicate or i_formula, " +
-                "got {}".format(expr.sexpr())
+                (
+                    "Illegal chc tail: expected u_predicate or i_formula, "
+                    "got {}"
+                ).format(expr.sexpr())
             )
     else:
         i_formula_count = 0
@@ -61,8 +66,10 @@ def check_chc_tail(expr):
             if u_predicate(kid):
                 if i_formula_count > 1:
                     raise Exc(
-                        "Illegal tail: " +
-                        "predicate application(s) appears after i_formula"
+                        (
+                            "Illegal tail: "
+                            "predicate application(s) appears after i_formula"
+                        )
                     )
             elif i_formula(kid):
                 i_formula_count += 1
@@ -70,11 +77,13 @@ def check_chc_tail(expr):
                 raise Exc(
                     "Illegal conjunct in tail: {}".format(kid.sexpr())
                 )
-        if i_formula_count > 1:
-            raise Exc(
-                "Illegal tail: expected 0 or 1 i_formula, " +
-                "got {}".format(i_formula_count)
-            )
+        # if i_formula_count > 1:
+        #     raise Exc(
+        #         (
+        #             "Illegal tail: expected 0 or 1 i_formula, "
+        #             "got {}"
+        #         ).format(i_formula_count)
+        #     )
     return True
 
 
@@ -87,16 +96,20 @@ def check_chc_head(expr):
             for kid in expr.children():
                 if not z3.is_var(kid):
                     raise Exc(
-                        "Illegal head: " +
-                        "argument {} is not a variable in {}".format(
+                        (
+                            'Illegal head: '
+                            'argument {} is not a variable in {}'
+                        ).format(
                             kid.sexpr(), expr.sexpr()
                         )
                     )
                 index = z3.get_var_index(kid)
                 if index in known_vars:
                     raise Exc(
-                        "Illegal head: non-distinct arguments, " +
-                        "{} is used twice in {}".format(
+                        (
+                            'Illegal head: non-distinct arguments, '
+                            '{} is used twice in {}'
+                        ).format(
                             kid.sexpr(), expr.sexpr()
                         )
                     )
@@ -106,7 +119,7 @@ def check_chc_head(expr):
         return True
     else:
         raise Exc(
-            "Illegal head: {}".format(expr.sexpr())
+            'Illegal head: {}'.format(expr.sexpr())
         )
 
 
@@ -125,17 +138,21 @@ def check_chcs(exprs):
             is_query = check_chc(expr)
         except Exc as e:
             raise Exc(
-                "While checking clause #{}\n{}".format(index, e)
+                'While checking clause #{}\n{}'.format(index, e.value)
             )
         if is_query:
             query_count += 1
         elif not is_query and query_count > 0:
             raise Exc(
-                "Illegal benchmark: " +
-                "query clause is not the last clause"
+                (
+                    'Illegal benchmark: '
+                    'query clause is not the last clause'
+                )
             )
     if query_count != 1:
         raise Exc(
-            "Illegal benchmark: " +
-            "expected one query clause, found {}".format(query_count)
+            (
+                'Illegal benchmark: '
+                'expected one query clause, found {}'
+            ).format(query_count)
         )

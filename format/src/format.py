@@ -26,21 +26,21 @@ def parse_with_z3(file, out_dir, check_only, simplify):
         check.check_chcs(goals)
         print("success")
     else:
-        # tactic = z3.Tactic("horn-simplify")
         simplified = [goals]
-        # simplified = tactic(
-        #     goals,
-        #     "xform.inline_eager",
-        #     simplify,
-        #     "xform.inline_linear",
-        #     simplify,
-        #     "xform.slice",
-        #     simplify,
-        #     "xform.coi",
-        #     simplify,
-        #     "xform.compress_unbound",
-        #     simplify
-        # )
+        tactic = z3.Tactic("horn-simplify")
+        tactic(
+            goals,
+            "xform.inline_eager",
+            simplify,
+            "xform.inline_linear",
+            simplify,
+            "xform.slice",
+            simplify,
+            "xform.coi",
+            simplify,
+            "xform.compress_unbound",
+            simplify
+        )
         clauses = []
         queries = []
         if len(simplified) == 0:
@@ -60,7 +60,7 @@ def parse_with_z3(file, out_dir, check_only, simplify):
                     clauses.append(clause)
             except Exc as e:
                 raise Exc(
-                    'While fixing clause {}:\n{}'.format(index, e.args)
+                    'While fixing clause {}:\n{}'.format(index, e.value)
                 )
 
         if len(queries) < 1:
@@ -100,7 +100,7 @@ def parse_with_z3(file, out_dir, check_only, simplify):
                 check.check_chcs(these_clauses)
             except Exc as e:
                 raise Exc(
-                    "Result of formatting is ill-formed:\n{}".format(e)
+                    'Result of formatting is ill-formed:\n{}'.format(e.value)
                 )
 
 
@@ -160,5 +160,9 @@ if __name__ == "__main__":
             )
         except Exc as e:
             print('Error on file {}'.format(file))
+            print(e.value)
+            sys.exit(2)
+        except z3.Z3Exception as e:
+            print('Parse error on file {}'.format(file))
             print(e)
             sys.exit(2)

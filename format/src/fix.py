@@ -108,9 +108,9 @@ def fix_clause(clause, pred_decls):
         head = res[1]
         pred_decls.add(res[3])
         for atom in res[2]:
-            if not is_pred_app(atom):
+            if is_pred_app(atom):
                 raise Exc(
-                    'Unexpected fix_pred_app result'
+                    'Unexpected fix_pred_app result: {}'.format(atom.sexpr())
                 )
             tail_atoms.append(atom)
     elif not z3.is_false(context['head']):
@@ -118,11 +118,10 @@ def fix_clause(clause, pred_decls):
             z3.Not(context['head'])
         )
 
-    tail.append(make_and(tail_atoms))
+    for atom in tail_atoms:
+        tail.append(atom)
     if len(tail) == 0:
-        raise Exc(
-            'Internal error, unexpected empty tail'
-        )
+        tail.append(z3.BoolVal(True))
 
     query = head.decl().kind() != z3.Z3_OP_UNINTERPRETED
     implies = z3.Implies(z3.And(tail), head)

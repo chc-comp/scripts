@@ -9,4 +9,10 @@
   )
 )
 
+(assert
+  (forall ((n Int))
+    (=> (and (< n 0) (pred var n)) false)
+  )
+)
+
 (check-sat)
