@@ -8,7 +8,7 @@ import check
 import fix
 
 
-def parse_with_z3(file, out_dir, check_only):
+def parse_with_z3(file, out_dir, check_only, simplify):
     lst = file.split('/')
     tmp = lst.pop()
     lst = tmp.split('.')
@@ -21,15 +21,15 @@ def parse_with_z3(file, out_dir, check_only):
     t = z3.With(
         z3.Tactic("horn-simplify"),
         "xform.inline_eager",
-        False,
+        simplify,
         "xform.inline_linear",
-        False,
+        simplify,
         "xform.slice",
-        False,
+        simplify,
         "xform.coi",
-        False,
+        simplify,
         "xform.compress_unbound",
-        False,
+        simplify,
     )
     assertions = z3.parse_smt2_file(file)
     goals = z3.Goal()
@@ -103,6 +103,18 @@ def parse_with_z3(file, out_dir, check_only):
                 )
 
 
+def check_bool_clap(value, blah):
+    if value == "True":
+        return True
+    elif value == "False":
+        return False
+    else:
+        print 'Unexpected non-boolean value for argument {}: {}'.format(
+            blah, args.simplify
+        )
+        exit(2)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description='Formats and checks CHC benchmarks.'
@@ -112,6 +124,13 @@ if __name__ == "__main__":
         dest='check',
         metavar='True/False',
         help='Checks that the input file(s) respect the CHC-COMP format.',
+    )
+    parser.add_argument(
+        '--simplify',
+        dest='simplify',
+        metavar='True/False',
+        default="False",
+        help='Activates z3\'s simplifications (ignored by check).',
     )
     parser.add_argument(
         '--out_dir',
@@ -129,9 +148,14 @@ if __name__ == "__main__":
     if args.out_dir == "None":
         args.out_dir = None
 
+    args.simplify = check_bool_clap(args.simplify, "simplify")
+    args.check = check_bool_clap(args.check, "simplify")
+
     for file in args.file:
         try:
-            parse_with_z3(file, args.out_dir, args.check)
+            parse_with_z3(
+                file, args.out_dir, args.check, args.simplify
+            )
         except Exc as e:
             print('Error on file {}'.format(file))
             print(e)

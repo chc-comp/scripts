@@ -14,7 +14,7 @@ pip install -r requirements.txt
 ## Usage
 
 ```
-$ python translate.py -h
+$ python src/format.py -h
 usage: translate.py [-h] [--check True/False] [--out_dir DIR] file [file ...]
 
 Formats and checks CHC benchmarks.
@@ -42,7 +42,7 @@ $ cat test/inline_test_00.smt2
 (assert (forall ((x Int)) (=> (p x) (q x))))
 (assert (forall ((x Int)) (=> (q x) (> x 0))))
 
-$ python translate.py test/inline_test_00.smt2
+$ python src/format.py test/inline_test_00.smt2
 (set-logic HORN)
 (declare-fun p (Int) Bool)
 (declare-fun q (Int) Bool)
@@ -57,7 +57,7 @@ $ python translate.py test/inline_test_00.smt2
 Use `--out_dir DIR` to write the result to files in `DIR`:
 
 ```
-$ python translate.py --out_dir . test/check_err/multi_query.smt2
+$ python src/format.py --out_dir . test/check_err/multi_query.smt2
 Writing to ./multi_query_000.smt2
 Writing to ./multi_query_001.smt2
 Writing to ./multi_query_002.smt2
@@ -66,15 +66,15 @@ Writing to ./multi_query_002.smt2
 Use `--check True` to check if the input file is legal:
 
 ```
-$ python translate.py --check True test/multi_query.smt2
+$ python src/format.py --check True test/multi_query.smt2
 Error on file test/check_err/multi_query.smt2
 Illegal benchmark: expected one query clause, found 3
 
-$ python translate.py --check True test/cst_in_head.smt2
+$ python src/format.py --check True test/cst_in_head.smt2
 Error on file test/check_err/cst_in_head.smt2
 Illegal head: argument 42 is not a variable in (pred 42 (:var 0))
 
-$ python translate.py test/cst_in_head.smt2 > test.smt2 ; python2.7 translate.py --check True test.smt2
+$ python src/format.py test/cst_in_head.smt2 > test.smt2 ; python2.7 translate.py --check True test.smt2
 success
 ```
 
