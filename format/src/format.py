@@ -18,19 +18,6 @@ def parse_with_z3(file, out_dir, check_only, simplify):
         for stuff in lst[1:-1]:
             base_name = base_name + '.' + stuff
 
-    t = z3.With(
-        z3.Tactic("horn-simplify"),
-        "xform.inline_eager",
-        simplify,
-        "xform.inline_linear",
-        simplify,
-        "xform.slice",
-        simplify,
-        "xform.coi",
-        simplify,
-        "xform.compress_unbound",
-        simplify,
-    )
     assertions = z3.parse_smt2_file(file)
     goals = z3.Goal()
     goals.add(assertions)
@@ -39,7 +26,21 @@ def parse_with_z3(file, out_dir, check_only, simplify):
         check.check_chcs(goals)
         print("success")
     else:
-        simplified = t(goals)
+        # tactic = z3.Tactic("horn-simplify")
+        simplified = [goals]
+        # simplified = tactic(
+        #     goals,
+        #     "xform.inline_eager",
+        #     simplify,
+        #     "xform.inline_linear",
+        #     simplify,
+        #     "xform.slice",
+        #     simplify,
+        #     "xform.coi",
+        #     simplify,
+        #     "xform.compress_unbound",
+        #     simplify
+        # )
         clauses = []
         queries = []
         if len(simplified) == 0:
@@ -123,6 +124,7 @@ if __name__ == "__main__":
         '--check',
         dest='check',
         metavar='True/False',
+        default="False",
         help='Checks that the input file(s) respect the CHC-COMP format.',
     )
     parser.add_argument(
@@ -149,7 +151,7 @@ if __name__ == "__main__":
         args.out_dir = None
 
     args.simplify = check_bool_clap(args.simplify, "simplify")
-    args.check = check_bool_clap(args.check, "simplify")
+    args.check = check_bool_clap(args.check, "check")
 
     for file in args.file:
         try:

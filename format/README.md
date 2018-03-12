@@ -44,11 +44,25 @@ $ cat test/inline_test_00.smt2
 
 $ python src/format.py test/inline_test_00.smt2
 (set-logic HORN)
-(declare-fun p (Int) Bool)
-(declare-fun q (Int) Bool)
-(assert (forall ((A Int)) (=> (not (<= A 0)) (p A))))
-(assert (forall ((x Int)) (=> (p x) (q x))))
-(assert (forall ((A Int)) (=> (and (q A) (<= A 0)) false)))
+
+(declare-fun q ( Int ) Bool)
+(declare-fun p ( Int ) Bool)
+
+(assert
+  (forall ( (x Int) )
+    (=> (and (> x 0)) (p x))
+  )
+)
+(assert
+  (forall ( (x Int) )
+    (=> (and (p x) true) (q x))
+  )
+)
+(assert
+  (forall ( (x Int) )
+    (=> (and (q x) (not (> x 0))) false)
+  )
+)
 
 (check-sat)
 (exit)

@@ -118,15 +118,19 @@ def fix_clause(clause, pred_decls):
             z3.Not(context['head'])
         )
 
-    if len(tail_atoms) > 1:
-        tail.append(z3.And(tail_atoms))
-    elif len(tail_atoms) == 1:
-        tail.append(tail_atoms[0])
+    tail.append(make_and(tail_atoms))
+    if len(tail) == 0:
+        raise Exc(
+            'Internal error, unexpected empty tail'
+        )
 
     query = head.decl().kind() != z3.Z3_OP_UNINTERPRETED
-    implies = z3.Implies(make_and(tail), head)
+    implies = z3.Implies(z3.And(tail), head)
 
     if len(qvars) == 0:
-        return (implies, query)
+        return (
+            z3.ForAll(z3.Bool("CHC_COMP_UNUSED"), implies),
+            query
+        )
     else:
         return (z3.ForAll(qvars, implies), query)
