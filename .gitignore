@@ -1,2 +1,4 @@
 *.pyc
 format/test/repos/
+z3
+libz3.dylib

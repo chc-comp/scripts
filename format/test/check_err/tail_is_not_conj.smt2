@@ -3,14 +3,14 @@
 (set-logic HORN)
 
 (assert
-  (forall ((n Int))
-    (=> (and (>= n 0)) (pred 42 n))
+  (forall ((n Int) (m Int))
+    (=> (>= n 0) (pred n m))
   )
 )
 
 (assert
   (forall ((n Int) (m Int))
-    (=> (and (pred n m)) false)
+    (=> (pred n m) false)
   )
 )
 

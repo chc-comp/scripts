@@ -118,10 +118,7 @@ def fix_clause(clause, pred_decls):
             z3.Not(context['head'])
         )
 
-    for atom in tail_atoms:
-        tail.append(atom)
-    if len(tail) == 0:
-        tail.append(z3.BoolVal(True))
+    tail.append(make_and(tail_atoms))
 
     query = head.decl().kind() != z3.Z3_OP_UNINTERPRETED
     implies = z3.Implies(z3.And(tail), head)
