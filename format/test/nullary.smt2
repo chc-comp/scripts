@@ -3,11 +3,11 @@
 (set-logic HORN)
 
 (assert
-  (=> true pred)
+  (=> (and true) pred)
 )
 
 (assert
-  (=> pred false)
+  (=> (and pred) false)
 )
 
 (check-sat)

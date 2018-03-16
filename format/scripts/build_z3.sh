@@ -10,7 +10,7 @@ fi
 
 if [ ! -d z3/build ] ; then
   cd z3
-  python2.7 scripts/mk_make.py --python
+  python scripts/mk_make.py --python
   cd build ; make -j 4
   cd ../..
 fi

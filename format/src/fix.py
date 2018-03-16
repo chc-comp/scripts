@@ -28,19 +28,17 @@ def fix_quantifier(expr):
 
 def get_conjuncts(qvars, conjunction):
     if conjunction.decl().kind() == z3.Z3_OP_AND:
-        return [
-            z3.substitute_vars(kid, * qvars)
-            for kid in conjunction.children()
-        ]
+        return conjunction.children()
     else:
-        return [z3.substitute_vars(conjunction, * qvars)]
+        return [conjunction]
 
 
 def extract_implies(clause):
     qvars, implies = fix_quantifier(clause)
+    implies = z3.substitute_vars(implies, * list(reversed(qvars)))
     kids = implies.children()
     tail = get_conjuncts(qvars, kids[0])
-    head = z3.substitute_vars(kids[1], * qvars)
+    head = kids[1]
 
     return {
         'qvars': qvars,

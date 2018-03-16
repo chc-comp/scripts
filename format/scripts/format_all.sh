@@ -1,13 +1,13 @@
 #! /bin/bash
 
 repos=(
-  "https://github.com/chc-comp/hcai-bench"
-  "https://github.com/chc-comp/sally-chc-benchmarks"
-  "https://github.com/chc-comp/vmt-chc-benchmarks"
-  "https://github.com/chc-comp/kind2-chc-benchmarks"
-  "https://github.com/chc-comp/vmt-benchmarks"
-  "https://github.com/chc-comp/eldarica-misc"
-  "https://github.com/chc-comp/hopv"
+  # "https://github.com/chc-comp/hcai-bench"
+  # "https://github.com/chc-comp/sally-chc-benchmarks"
+  # "https://github.com/chc-comp/vmt-chc-benchmarks"
+  # "https://github.com/chc-comp/kind2-chc-benchmarks"
+  # "https://github.com/chc-comp/vmt-benchmarks"
+  # "https://github.com/chc-comp/eldarica-misc"
+  # "https://github.com/chc-comp/hopv"
   "https://github.com/chc-comp/ldv-ant-med"
 )
 
@@ -43,19 +43,25 @@ for repo in "${repos[@]}" ; do
     fi
   fi
   echo "  translating files..."
+  for file in `find $repo_target -iname "*.smt2.gz"` ; do
+    gzcat $file > $file.smt2
+  done
   for file in `find $repo_target -iname "*.smt2"` ; do
+    printf "  $file ... "
     grep -v -e "(get-model)" $file > $tmp_file
-    python2.7 src/format.py $tmp_file > /dev/null
+    python src/format.py $tmp_file &> /dev/null
     exit_code="$?"
     if [ "$exit_code" -ne "0" ] ; then
-      echo "    error on $file"
+      echo -e "\033[31merror\033[0m"
       err_file=`get_err_file $repo_name`
+      echo "    -> see $err_file for a list of errors on this repo"
       echo "$file" >> $err_file
-      python2.7 src/format.py $tmp_file
-      exit 2
+      # python src/format.py $tmp_file
     else
-      echo "  success on $file"
+      echo "success"
     fi
   done
-  exit 0
 done
+
+
+exit 0
