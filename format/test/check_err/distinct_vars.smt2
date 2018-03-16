@@ -4,7 +4,7 @@
 
 (assert
   (forall ((n Int))
-    (=> (and (>= n 0)) (pred 42 n))
+    (=> (and (>= n 0)) (pred n n))
   )
 )
 

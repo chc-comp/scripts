@@ -10,7 +10,11 @@ class Exc(Exception):
 
 
 def is_pred_app(expr):
-    return z3.is_expr(expr) and expr.decl().kind() == z3.Z3_OP_UNINTERPRETED
+    return (
+        not z3.is_var(expr) and
+        z3.is_expr(expr) and
+        expr.decl().kind() == z3.Z3_OP_UNINTERPRETED
+    )
 
 
 def make_and(exprs):
@@ -98,6 +102,3 @@ def clause_to_str(forall, pref):
     string += "\n{})".format(pref)
 
     return string
-
-
-

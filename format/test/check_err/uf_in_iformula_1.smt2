@@ -5,7 +5,7 @@
 
 (assert
   (forall ((n Int))
-    (=> (>= var 0) (pred var n))
+    (=> (and (>= var 0)) (pred var n))
   )
 )
 

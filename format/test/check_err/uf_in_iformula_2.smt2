@@ -5,7 +5,7 @@
 
 (assert
   (forall ((n Int) (m Int))
-    (=> (= (not_pred n) m) (pred m n))
+    (=> (and (= (not_pred n) m)) (pred m n))
   )
 )
 
