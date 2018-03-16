@@ -1,13 +1,13 @@
 #! /bin/bash
 
 repos=(
-  # "https://github.com/chc-comp/hcai-bench"
-  # "https://github.com/chc-comp/sally-chc-benchmarks"
-  # "https://github.com/chc-comp/vmt-chc-benchmarks"
-  # "https://github.com/chc-comp/kind2-chc-benchmarks"
-  # "https://github.com/chc-comp/vmt-benchmarks"
-  # "https://github.com/chc-comp/eldarica-misc"
-  # "https://github.com/chc-comp/hopv"
+  "https://github.com/chc-comp/hcai-bench"
+  "https://github.com/chc-comp/sally-chc-benchmarks"
+  "https://github.com/chc-comp/vmt-chc-benchmarks"
+  "https://github.com/chc-comp/kind2-chc-benchmarks"
+  "https://github.com/chc-comp/vmt-benchmarks"
+  "https://github.com/chc-comp/eldarica-misc"
+  "https://github.com/chc-comp/hopv"
   "https://github.com/chc-comp/ldv-ant-med"
 )
 

@@ -1,4 +1,4 @@
-Given SMT-LIB horn clauses, attempts to format the clauses to the CHC-COMP format. Original script from @dddejan.
+Given SMT-LIB horn clauses, attempts to format the clauses to the CHC-COMP format. Original script by @dddejan.
 
 - splits multiple-query scripts to single query ones (separated by `exit`)
 - forces head predicate application arguments to be (distinct) variables
@@ -15,19 +15,25 @@ To setup z3:
 
 ```
 $ python src/format.py -h
-usage: translate.py [-h] [--check True/False] [--out_dir DIR] file [file ...]
+usage: format.py [-h] [--check True/False] [--simplify True/False]
+                 [--skip_errors True/False] [--out_dir DIR]
+                 file [file ...]
 
 Formats and checks CHC benchmarks.
 
 positional arguments:
-  file                Files to process
+  file                  Files to process
 
 optional arguments:
-  -h, --help          show this help message and exit
-  --check True/False  Checks that the input file(s) respect the CHC-COMP
-                      format.
-  --out_dir DIR       Output directory to put the result files in (stdout if
-                      None).
+  -h, --help            show this help message and exit
+  --check True/False    Checks that the input file(s) respect the CHC-COMP
+                        format.
+  --simplify True/False
+                        Activates z3's simplifications (ignored by check).
+  --skip_errors True/False
+                        Prints errors but does not stop the script.
+  --out_dir DIR         Output directory to put the result files in (stdout if
+                        None).
 ```
 
 To format a benchmark:
@@ -93,3 +99,10 @@ success
 ```
 
 The last line is actually redundant since the script systematically checks that the clauses it produces are correct.
+
+
+# Scripts
+
+`scripts/check.sh` runs regression tests.
+
+`scripts/format_all.sh` retrieves all (known) CHC benchmark repositories and runs this tool on all of them.
