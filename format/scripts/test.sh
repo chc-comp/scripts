@@ -5,7 +5,7 @@ cmd="python src/format.py --check True"
 function check {
   smt_file="$1"
   expected_output="$2"
-  output=`$cmd $smt_file`
+  output=`$cmd $smt_file 2>&1`
   if [ "$expected_output" != "$output" ] ; then
     echo "Error on $smt_file"
     echo "Expected output:"

@@ -3,12 +3,12 @@ import z3
 import argparse
 from sets import Set
 
-from util import Exc, clause_to_str, pred_decl_to_str
+from util import Exc, write_clause, write_pred_decl, eprint
 import check
 import fix
 
 
-def parse_with_z3(file, out_dir, check_only, simplify):
+def parse_with_z3(file, out_dir, check_only, simplify, skip_err):
     if check_only:
         assertions = z3.parse_smt2_file(file)
         check.check_chcs(assertions.children())
@@ -41,7 +41,10 @@ def parse_with_z3(file, out_dir, check_only, simplify):
         "xform.tail_simplifier_pve",
         simplify
     )
-    queries = engine.parse_file(file)
+    try:
+        queries = engine.parse_file(file)
+    except z3.Z3Exception as e:
+        raise Exc('Parse error on file {}'.format(file))
 
     assertions = engine.get_assertions()
     for rule in engine.get_rules():
@@ -118,18 +121,25 @@ def parse_with_z3(file, out_dir, check_only, simplify):
         try:
             check.check_chcs(these_clauses)
         except Exc as e:
-            raise Exc(
+            exc = Exc(
                 'Result of formatting is ill-formed:\n{}'.format(e.value)
             )
+            if skip_err:
+                eprint('Error on file {}'.format(file))
+                eprint(exc.value)
+                continue
+            else:
+                raise exc
 
         writer.write('(set-logic HORN)\n\n')
         for decl in pred_decls:
-            writer.write(pred_decl_to_str(decl))
+            write_pred_decl(decl, writer)
             writer.write('\n')
         writer.write('\n')
         for clause in these_clauses:
+            print(clause.sexpr())
             writer.write('(assert\n')
-            writer.write(clause_to_str(clause, '  '))
+            write_clause(clause, '  ', writer)
             writer.write('\n)\n')
         writer.write('\n')
         writer.write('(check-sat)\n')
@@ -167,6 +177,13 @@ if __name__ == "__main__":
         help='Activates z3\'s simplifications (ignored by check).',
     )
     parser.add_argument(
+        '--skip_errors',
+        dest='skip_err',
+        metavar='True/False',
+        default='False',
+        help='Prints errors but does not stop the script.'
+    )
+    parser.add_argument(
         '--out_dir',
         dest='out_dir',
         metavar='DIR',
@@ -184,15 +201,15 @@ if __name__ == "__main__":
 
     args.simplify = check_bool_clap(args.simplify, "simplify")
     args.check = check_bool_clap(args.check, "check")
+    args.skip_err = check_bool_clap(args.skip_err, "skip_err")
 
     for file in args.file:
         try:
-            parse_with_z3(file, args.out_dir, args.check, args.simplify)
+            parse_with_z3(
+                file, args.out_dir, args.check, args.simplify, args.skip_err
+            )
         except Exc as e:
-            print('Error on file {}'.format(file))
-            print(e.value)
+            eprint('Error on file {}'.format(file))
+            eprint(e.value)
             sys.exit(2)
-        # except z3.Z3Exception as e:
-        #     print('Parse error on file {}'.format(file))
-        #     print(e)
-        #     sys.exit(2)
+

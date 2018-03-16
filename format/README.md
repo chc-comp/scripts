@@ -88,7 +88,7 @@ $ python src/format.py --check True test/cst_in_head.smt2
 Error on file test/check_err/cst_in_head.smt2
 Illegal head: argument 42 is not a variable in (pred 42 (:var 0))
 
-$ python src/format.py test/cst_in_head.smt2 > test.smt2 ; python2.7 translate.py --check True test.smt2
+$ python src/format.py test/cst_in_head.smt2 > test.smt2 ; python translate.py --check True test.smt2
 success
 ```
 
