@@ -62,8 +62,8 @@ def fix_pred_app(qvars, expr):
             if z3.is_const(
                 kid
             ) and kid.decl().kind() == z3.Z3_OP_UNINTERPRETED:
-                if kid not in known_vars:
-                    known_vars.add(kid)
+                if kid.decl().name() not in known_vars:
+                    known_vars.add(kid.decl().name())
                     kids.append(kid)
                     continue
             # Not a var, or a var we already saw.
