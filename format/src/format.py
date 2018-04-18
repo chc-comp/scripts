@@ -3,7 +3,7 @@ import z3
 import argparse
 from sets import Set
 
-from util import Exc, write_clause, write_pred_decl, eprint
+from util import Exc, write_clauses_smt2, write_pred_decl, eprint
 import check
 import fix
 
@@ -131,19 +131,7 @@ def parse_with_z3(file, out_dir, check_only, simplify, skip_err):
             else:
                 raise exc
 
-        writer.write('(set-logic HORN)\n\n')
-        for decl in pred_decls:
-            write_pred_decl(decl, writer)
-            writer.write('\n')
-        writer.write('\n')
-        for clause in these_clauses:
-            print(clause.sexpr())
-            writer.write('(assert\n')
-            write_clause(clause, '  ', writer)
-            writer.write('\n)\n')
-        writer.write('\n')
-        writer.write('(check-sat)\n')
-        writer.write('(exit)\n')
+        write_clauses_smt2(pred_decls, these_clauses, writer)
 
 
 def check_bool_clap(value, blah):
