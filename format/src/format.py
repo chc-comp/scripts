@@ -3,12 +3,15 @@ import z3
 import argparse
 from sets import Set
 
-from util import Exc, write_clauses_smt2, write_pred_decl, eprint
+from util import Exc, eprint
+from util import write_clauses_smt2, write_clauses_datalog, write_pred_decl
 import check
 import fix
 
 
-def parse_with_z3(file, out_dir, check_only, simplify, skip_err):
+def parse_with_z3(
+    file, out_dir, check_only, split_queries, simplify, skip_err, datalog
+):
     if check_only:
         assertions = z3.parse_smt2_file(file)
         check.check_chcs(assertions.children())
@@ -103,13 +106,26 @@ def parse_with_z3(file, out_dir, check_only, simplify, skip_err):
         print('No query clause found for {}, skipping.'.format(file))
         return
 
-    for cnt, query in enumerate(queries):
-        these_clauses = []
-        for clause in clauses:
-            these_clauses.append(clause)
-        these_clauses.append(query)
+    separated_clauses = []
 
-        writer = sys.stdout
+    if split_queries:
+
+        for cnt, query in enumerate(queries):
+            these_clauses = []
+            for clause in clauses:
+                these_clauses.append(clause)
+            these_clauses.append(query)
+
+            separated_clauses.append(these_clauses)
+
+    else:
+
+        for query in queries:
+            clauses.append(query)
+
+        separated_clauses.append(clauses)
+
+    for clauses in separated_clauses:
 
         if out_dir is not None:
             out_file = "{}/{}_{:0>3}.smt2".format(
@@ -117,21 +133,27 @@ def parse_with_z3(file, out_dir, check_only, simplify, skip_err):
             )
             print('Writing to {}'.format(out_file))
             writer = open(out_file, mode='w')
+        else:
+            writer = sys.stdout
 
-        try:
-            check.check_chcs(these_clauses)
-        except Exc as e:
-            exc = Exc(
-                'Result of formatting is ill-formed:\n{}'.format(e.value)
-            )
-            if skip_err:
-                eprint('Error on file {}'.format(file))
-                eprint(exc.value)
-                continue
-            else:
-                raise exc
+        if split_queries:
+            try:
+                check.check_chcs(clauses)
+            except Exc as e:
+                exc = Exc(
+                    'Result of formatting is ill-formed:\n{}'.format(e.value)
+                )
+                if skip_err:
+                    eprint('Error on file {}'.format(file))
+                    eprint(exc.value)
+                    continue
+                else:
+                    raise exc
 
-        write_clauses_smt2(pred_decls, these_clauses, writer)
+        if datalog:
+            write_clauses_datalog(pred_decls, clauses, writer)
+        else:
+            write_clauses_smt2(pred_decls, clauses, writer)
 
 
 def check_bool_clap(value, blah):
@@ -172,6 +194,20 @@ if __name__ == "__main__":
         help='Prints errors but does not stop the script.'
     )
     parser.add_argument(
+        '--datalog',
+        dest='datalog',
+        metavar='True/False',
+        default='False',
+        help='Output benchmark in datalog format.'
+    )
+    parser.add_argument(
+        '--split_queries',
+        dest='split_queries',
+        metavar='True/False',
+        default='True',
+        help='Split the queries to generate separate benchmarks.'
+    )
+    parser.add_argument(
         '--out_dir',
         dest='out_dir',
         metavar='DIR',
@@ -190,11 +226,14 @@ if __name__ == "__main__":
     args.simplify = check_bool_clap(args.simplify, "simplify")
     args.check = check_bool_clap(args.check, "check")
     args.skip_err = check_bool_clap(args.skip_err, "skip_err")
+    args.datalog = check_bool_clap(args.datalog, "datalog")
+    args.split_queries = check_bool_clap(args.split_queries, "split_queries")
 
     for file in args.file:
         try:
             parse_with_z3(
-                file, args.out_dir, args.check, args.simplify, args.skip_err
+                file, args.out_dir, args.check, args.split_queries,
+                args.simplify, args.skip_err, args.datalog
             )
         except Exc as e:
             eprint('Error on file {}'.format(file))

@@ -140,7 +140,6 @@ def write_clauses_smt2(declarations, clauses, writer):
         writer.write('\n')
     writer.write('\n')
     for clause in clauses:
-        print(clause.sexpr())
         writer.write('(assert\n')
         write_clause_smt2(clause, '  ', writer)
         writer.write('\n)\n')
