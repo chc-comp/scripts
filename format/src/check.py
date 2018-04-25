@@ -1,5 +1,4 @@
 import z3
-from sets import Set
 from util import Exc, is_pred_app, foreach_expr
 
 
@@ -44,7 +43,7 @@ def u_predicate(expr, distinct_vars):
     Argument `distinct_vars` forces to check that all arguments are
     distinct."""
     if is_pred_app(expr):
-        vars = Set([])
+        vars = set([])
         for index, kid in enumerate(expr.children()):
             if not z3.is_var(kid):
                 raise Exc(

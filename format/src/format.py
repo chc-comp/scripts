@@ -1,10 +1,9 @@
 import sys
 import z3
 import argparse
-from sets import Set
 
 from util import Exc, eprint
-from util import write_clauses_smt2, write_clauses_datalog, write_pred_decl
+from util import write_clauses_smt2, write_clauses_datalog
 import check
 import fix
 
@@ -88,7 +87,7 @@ def parse_with_z3(
             'possibly because it is solved trivial by pre-processing'
         )
 
-    pred_decls = Set()
+    pred_decls = set()
 
     for index, clause in enumerate(simplified[0]):
         try:
@@ -125,12 +124,15 @@ def parse_with_z3(
 
         separated_clauses.append(clauses)
 
+    cnt = 0
+
     for clauses in separated_clauses:
 
         if out_dir is not None:
             out_file = "{}/{}_{:0>3}.smt2".format(
                 out_dir, base_name, cnt
             )
+            cnt += 1
             print('Writing to {}'.format(out_file))
             writer = open(out_file, mode='w')
         else:
@@ -162,8 +164,10 @@ def check_bool_clap(value, blah):
     elif value == "False":
         return False
     else:
-        print 'Unexpected non-boolean value for argument {}: {}'.format(
-            blah, args.simplify
+        print(
+            'Unexpected non-boolean value for argument {}: {}'.format(
+                blah, args.simplify
+            )
         )
         exit(2)
 

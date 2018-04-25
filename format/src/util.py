@@ -1,5 +1,4 @@
 from __future__ import print_function
-from sets import Set
 import sys
 import z3
 
@@ -163,7 +162,7 @@ def write_clauses_datalog(declarations, clauses, writer):
             writer.write((" {}".format(decl.domain(n))))
         writer.write(' ))\n')
 
-    known_vars = Set([])
+    known_vars = set([])
     implications = []
     writer.write('\n')
 

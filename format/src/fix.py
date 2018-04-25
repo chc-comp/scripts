@@ -1,5 +1,4 @@
 import z3
-from sets import Set
 
 from util import Exc, is_pred_app, make_and
 
@@ -56,7 +55,7 @@ def fix_pred_app(qvars, expr):
     terms = []
     if expr.decl().kind() == z3.Z3_OP_UNINTERPRETED:
         # print 'fixing {}'.format(expr)
-        known_vars = Set([])
+        known_vars = set([])
         kids = []
         for kid in expr.children():
             if z3.is_const(
