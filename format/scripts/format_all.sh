@@ -12,12 +12,15 @@ repos=(
 )
 
 target_dir="test/repos"
+mkdir -p "$target_dir"
+
 err_dir="$target_dir/errors"
-tmp_file="/tmp/tmp_file.smt2"
-
-mkdir -p $target_dir
-
 rm -rf $err_dir
+
+out_dir="test/all_benchs"
+mkdir -p $out_dir
+
+tmp_file="/tmp/tmp_file.smt2"
 
 function get_err_file {
   if [ ! -d $err_dir ] ; then
@@ -33,6 +36,7 @@ function get_err_file {
 for repo in "${repos[@]}" ; do
   echo "Working on $repo"
   repo_name=`echo "$repo" | sed -e 's:.*/::'`
+  mkdir -p "$out_dir/$repo_name"
   repo_target="$target_dir/$repo_name"
   echo "> cloning to $repo_target"
   if [ ! -d $repo_target ] ; then
@@ -49,7 +53,7 @@ for repo in "${repos[@]}" ; do
   for file in `find $repo_target -iname "*.smt2"` ; do
     printf "  $file ... "
     grep -v -e "(get-model)" $file > $tmp_file
-    python src/format.py $tmp_file &> /dev/null
+    python src/format.py --out_dir $out_dir/$repo_name $tmp_file &> /dev/null
     exit_code="$?"
     if [ "$exit_code" -ne "0" ] ; then
       echo -e "\033[31merror\033[0m"

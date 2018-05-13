@@ -76,8 +76,8 @@ def write_pred_decl(decl, writer):
     symbol = quote_symbol_if_needed(decl.name())
     writer.write("(declare-fun {} (".format(symbol))
     for n in range(0, decl.arity()):
-        writer.write((" {}".format(decl.domain(n))))
-    writer.write(" ) {})".format(decl.range()))
+        writer.write((" {}".format(decl.domain(n).sexpr())))
+    writer.write(" ) {})".format(decl.range().sexpr()))
 
 
 def write_implication_smt2(implication, pref, false_subst, writer):
