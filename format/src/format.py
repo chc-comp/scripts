@@ -59,7 +59,7 @@ def parse_with_z3(
     goals.add(assertions)
 
     non_lin = z3.Probe('arith-max-deg')
-    if non_lin(goals) != 0:
+    if non_lin(goals) > 1:
         raise Skip(
             'found non-linear expressions'
         )
