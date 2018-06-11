@@ -14,6 +14,13 @@ class Exc(Exception):
     def __str__(self):
         return repr(self.value)
 
+class Skip(Exception):
+    def __init__(self, value):
+        self.value = value
+
+    def __str__(self):
+        return repr(self.value)
+
 
 def is_pred_app(expr):
     return (
@@ -68,8 +75,8 @@ def quote_symbol_if_needed(symbol):
         if not char.isalnum() or char not in [
             '~' '!' '@' '$' '%' '^' '&' '*' '_' '-' '+' '=' '<' '>' '.' '?' '/'
         ]:
-            return '|{}|'.format(symbol)
-    return symbol
+            return '{}'.format(symbol)
+    return '{}'.format(symbol)
 
 
 def write_pred_decl(decl, writer):

@@ -2,7 +2,7 @@ import sys
 import z3
 import argparse
 
-from util import Exc, eprint
+from util import Skip, Exc, eprint
 from util import write_clauses_smt2, write_clauses_datalog
 import check
 import fix
@@ -58,6 +58,12 @@ def parse_with_z3(
     goals = z3.Goal()
     goals.add(assertions)
 
+    non_lin = z3.Probe('arith-max-deg')
+    if non_lin(goals) != 0:
+        raise Skip(
+            'found non-linear expressions'
+        )
+
     # if simplify:
     tactic = z3.Tactic("horn-simplify")
     simplified = tactic(
@@ -77,14 +83,14 @@ def parse_with_z3(
         "xform.tail_simplifier_pve",
         simplify
     )
+
     # else:
     #     simplified = [goals]
     clauses = []
     queries = []
     if len(simplified) == 0:
-        raise Exc(
-            'Empty benchmark, ' +
-            'possibly because it is solved trivial by pre-processing'
+        raise Skip(
+            'empty benchmark (possibly because of pre-processing)'
         )
 
     pred_decls = set()
@@ -102,8 +108,7 @@ def parse_with_z3(
             )
 
     if len(queries) < 1:
-        print('No query clause found for {}, skipping.'.format(file))
-        return
+        raise Skip('no query clause (possibly because of pre-processing)')
 
     separated_clauses = []
 
@@ -243,4 +248,6 @@ if __name__ == "__main__":
             eprint('Error on file {}'.format(file))
             eprint(e.value)
             sys.exit(2)
-
+        except Skip as e:
+            print('Skipping file {}:'.format(file))
+            print(e.value)
