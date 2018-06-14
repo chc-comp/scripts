@@ -76,7 +76,7 @@ def quote_symbol_if_needed(symbol):
         if not char.isalnum() or char not in [
             '~' '!' '@' '$' '%' '^' '&' '*' '_' '-' '+' '=' '<' '>' '.' '?' '/'
         ]:
-            return '{}'.format(symbol)
+            return '|{}|'.format(symbol)
     return '{}'.format(symbol)
 
 
