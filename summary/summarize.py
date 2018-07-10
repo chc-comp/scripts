@@ -7,8 +7,8 @@ import sys
 def solver_name(n) :
     if n == 'spacer' :
         return n
-    elif n == 'rebus' :
-        return n
+    elif n.startswith('rebus') :
+        return 'rebus'
     elif n.startswith('Eldarica'):
         return 'eldarica'
     elif n.startswith('TransfHORNer'):
@@ -31,6 +31,20 @@ def fld_agg(s):
     return list(s).count('starexec-unknown')
 def ok_agg(s):
     return sat_agg(s) + uns_agg(s)
+def to_agg(s):
+    x = s.where(s.str.startswith('timeout'))
+    return x.count()
+def mo_agg(s):
+    x = s.where(s.str.startswith('memout'))
+    return x.count()
+
+def uniq_agg(s):
+    if s.count() == 0:
+        return 'none'
+    elif s.count() == 1:
+        return s.iloc[0]
+    else:
+        return 'many'
 class SummaryApp(object):
     args= None
     def __init__(self):
@@ -47,9 +61,11 @@ class SummaryApp(object):
 
     def run(self, args):
         pd.options.display.max_columns=99
+        pd.options.display.max_rows=500
         df = pd.read_csv(args.in_file)
         gp = df.groupby('solver', as_index=False)
         df2 = gp.agg({'result' : ['count', ok_agg, sat_agg, uns_agg, fld_agg],
+                      'status' : [to_agg, mo_agg],
                       'cpu time' : 'sum',
                       'wallclock time' : 'sum',
                       'memory usage' : 'sum'}) \
@@ -59,7 +75,9 @@ class SummaryApp(object):
                                  'ok_agg' : 'ok',
                                  'sat_agg' : 'sat',
                                  'uns_agg' : 'uns',
-                                 'fld_agg' : 'fld'
+                                 'fld_agg' : 'fld',
+                                 'to_agg' : 'to',
+                                 'mo_agg' : 'mo',
                 })
 
         df2.columns = [' '.join(col) for col in df2.columns]
@@ -71,6 +89,8 @@ class SummaryApp(object):
                               'result sat' : 'sat',
                               'result uns' : 'uns',
                               'result fld' : 'fld',
+                              'status to' : 'to',
+                              'status mo' : 'mo',
                               'time sum' : 'time',
                               'space sum' : 'space',
                               'wall sum' : 'real'
@@ -80,25 +100,31 @@ class SummaryApp(object):
         df2.space = (df2.space / (1024 * 1024)).astype('int64')
         df2.solver = df2.solver.apply(solver_name)
 
-        cols = ['solver', 'cnt', 'ok', 'sat', 'uns', 'fld',
+        cols = ['solver', 'cnt', 'ok', 'sat', 'uns', 'fld', 'to', 'mo',
                 'time', 'real', 'space']
         df2 = df2[cols]
         df2 = df2.sort_values('ok', ascending=False)
-        print(df2)
 
-        # solver, cnt, ok, sat, uns, fld, to, mo, real, time, space, best, uniq
-        # best and uniq computed separately
-        # cnt is easy
-        # ok : sat + unsat group of result column
-        # sat: sat group of result column
-        # uns: unsat group of result column
-        # fld: starexec-unknown of result column
-        # to: timeout of status column
-        # mo: memout of status column
-        # real: sum of time
-        # time: sum of wallclock
-        # space: sum of space
 
+        gp2 = df[df.result.str.contains('sat')].groupby('benchmark',
+                                                        as_index = False)
+        df3 = gp2.agg({'solver': uniq_agg})
+        df3 = df3[~df3.solver.str.match('many')]
+        df3 = df3[['benchmark', 'solver']]
+        df3 = df3.groupby('solver', as_index=False).agg ({'benchmark': 'count'});
+        df3 = df3.rename(columns = {'benchmark' : 'uniq'})
+        df3 = df3.sort_values('uniq', ascending=False)
+        df3.columns = [col.strip() for col in df3.columns]
+        df3.solver = df3.solver.apply(solver_name)
+
+        df3.set_index('solver')
+        df2.set_index('solver')
+        df4 = pd.merge(df2, df3, how='outer', on='solver').fillna(0)
+        df4.uniq = df4.uniq.astype('int32')
+        df4.set_index('solver')
+        print(df4)
+
+        df4.to_csv(args.out_file, index=False)
 
     def main(self, argv):
         self.parse_args(argv[1:])
