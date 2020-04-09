@@ -9,7 +9,8 @@ import fix
 
 
 def parse_with_z3(
-    file, out_dir, check_only, split_queries, simplify, skip_err, datalog
+    file, out_dir, check_only, split_queries, merge_queries,
+        simplify, skip_err, datalog
 ):
     if check_only:
         assertions = z3.parse_smt2_file(file)
@@ -109,6 +110,9 @@ def parse_with_z3(
 
     if len(queries) < 1:
         raise Skip('no query clause (possibly because of pre-processing)')
+
+    if merge_queries:
+        fix.merge_queries_new_pred(clauses, queries, pred_decls)
 
     separated_clauses = []
 
@@ -217,6 +221,13 @@ if __name__ == "__main__":
         help='Split the queries to generate separate benchmarks.'
     )
     parser.add_argument(
+        '--merge_queries',
+        dest='merge_queries',
+        metavar='True/False',
+        default='False',
+        help='Merge multiple queries into a single query (introduces a new nullary predicate).'
+    )
+    parser.add_argument(
         '--out_dir',
         dest='out_dir',
         metavar='DIR',
@@ -237,11 +248,13 @@ if __name__ == "__main__":
     args.skip_err = check_bool_clap(args.skip_err, "skip_err")
     args.datalog = check_bool_clap(args.datalog, "datalog")
     args.split_queries = check_bool_clap(args.split_queries, "split_queries")
+    args.merge_queries = check_bool_clap(args.merge_queries, "merge_queries")
 
     for file in args.file:
         try:
             parse_with_z3(
-                file, args.out_dir, args.check, args.split_queries,
+                file, args.out_dir, args.check,
+                args.split_queries, args.merge_queries,
                 args.simplify, args.skip_err, args.datalog
             )
         except Exc as e:

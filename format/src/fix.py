@@ -127,3 +127,34 @@ def fix_clause(clause, pred_decls):
         )
     else:
         return (z3.ForAll(qvars, implies), query)
+
+
+def merge_queries_new_pred(clauses, queries, decls):
+    if len(queries) > 1:
+        false1 = z3.Bool("CHC_COMP_FALSE")
+        decls.add(false1.decl())
+
+        for query in queries:
+            assert(z3.is_quantifier(query) and query.is_forall())
+
+            qvars = [
+                z3.Const(query.var_name(n), query.var_sort(n)) for n in range(
+                    0, query.num_vars()
+                )
+            ]
+
+            body = query.body()
+            assert(body.decl().kind() == z3.Z3_OP_IMPLIES)
+            kids = body.children()
+            assert(kids[1] == z3.BoolVal(False))
+
+            newBody = z3.Implies(kids[0], false1)
+            newClause = z3.ForAll(qvars, newBody)
+
+            clauses.append(newClause)
+
+        queries.clear()
+
+        queries.append(z3.ForAll(z3.Bool("CHC_COMP_UNUSED"),
+                                 z3.Implies(z3.And(false1), z3.BoolVal(False))))
+
