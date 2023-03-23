@@ -2,7 +2,7 @@ import sys
 import z3
 import argparse
 
-from util import Skip, Exc, eprint
+from util import Skip, Exc, eprint, collect_datatypes
 from util import write_clauses_smt2, write_clauses_datalog
 import check
 import fix
@@ -95,10 +95,12 @@ def parse_with_z3(
         )
 
     pred_decls = set()
+    datatypes = set()
 
     for index, clause in enumerate(simplified[0]):
         try:
             clause, is_query = fix.fix_clause(clause, pred_decls)
+            collect_datatypes(clause, datatypes)
             if is_query:
                 queries.append(clause)
             else:
@@ -164,7 +166,7 @@ def parse_with_z3(
         if datalog:
             write_clauses_datalog(pred_decls, clauses, writer)
         else:
-            write_clauses_smt2(pred_decls, clauses, writer)
+            write_clauses_smt2(datatypes, pred_decls, clauses, writer)
 
 
 def check_bool_clap(value, blah):
