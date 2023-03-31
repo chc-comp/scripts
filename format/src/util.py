@@ -39,13 +39,40 @@ def make_and(exprs):
     else:
         return z3.BoolVal(True)
 
+# get all datatypes used in the definition of dt
+def get_all_deps(dt):
+    if not isinstance(dt, z3.DatatypeSortRef):
+        return set()
+    deps = {dt}
+    n = dt.num_constructors()
+    for i in range(n):
+        c = dt.constructor(i)
+        m = c.arity()
+        for j in range(m):
+            s = c.domain(j)
+            if isinstance(s, z3.DatatypeSortRef):
+                if s in deps:
+                    continue
+                deps.add(s)
+                deps_new = get_all_deps(deps)
+                deps.update(deps_new)
+            elif isinstance(s, z3.ArraySortRef):
+                deps.update(get_all_deps(s.domain()))
+                deps.update(get_all_deps(s.range()))
+    return deps
+
 #TODO: collect datatypes from expressions as well, not just quantified variables
 def collect_datatypes(clause, datatype):
     assert clause.is_forall()
     n = clause.num_vars()
     for i in range(n):
-        if isinstance(clause.var_sort(i), z3.DatatypeSortRef):
-            datatype.add(clause.var_sort(i))
+        s = clause.var_sort(i)
+        if isinstance(s, z3.DatatypeSortRef):
+            datatype.add(s)
+            datatype.update(get_all_deps(s))
+        if isinstance(s, z3.ArraySortRef):
+            datatype.update(get_all_deps(s.domain()))
+            datatype.update(get_all_deps(s.range()))
 
 def foreach_expr(fn, expr, *args, **kwargs):
     """Applies a given function to each sub-expression of the input expr"""
@@ -148,7 +175,7 @@ def write_clause_smt2(forall, pref, writer):
 
 def print_selectors(s, writer):
     assert s.arity() == 1
-    writer.write("({} {})".format(s, s.domain(0)))
+    writer.write("({} {})".format(s, s.range().sexpr()))
 
 def print_constructor(dt, i, writer):
     c = dt.constructor(i)
@@ -159,18 +186,33 @@ def print_constructor(dt, i, writer):
         print_selectors(s, writer)
     writer.write(")")
 
-def write_dt_decl(dt, writer):
-    writer.write('(declare-datatypes (({} 0)) (('.format(dt))
-    n = dt.num_constructors()
-    for i in range(n):
-        print_constructor(dt, i, writer)
-    writer.write(')))')
+def write_dt_decl(grp, writer):
+    writer.write('(declare-datatypes (')
+    for dt in grp:
+        writer.write(' ({} 0) '.format(dt))
+    writer.write(') (')
+    for dt in grp:
+        writer.write(' ( ')
+        n = dt.num_constructors()
+        for i in range(n):
+            print_constructor(dt, i, writer)
+        writer.write(' )\n')
+    writer.write('))')
+
+def group_and_print_dt(dt_declarations, writer):
+    seen = set()
+    for dt in dt_declarations:
+        if dt in seen:
+            continue
+        grp = get_all_deps(dt)
+        for d in grp:
+            seen.add(d)
+        write_dt_decl(grp, writer)
+        writer.write('\n')
 
 def write_clauses_smt2(dt_declarations, pred_declarations, clauses, writer):
     writer.write('(set-logic HORN)\n\n')
-    for dt in dt_declarations:
-        write_dt_decl(dt, writer)
-        writer.write('\n')
+    group_and_print_dt(dt_declarations, writer)
     writer.write('\n')
     for decl in pred_declarations:
         write_pred_decl(decl, writer)
