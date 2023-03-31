@@ -183,36 +183,80 @@ def print_constructor(dt, i, writer):
     n = c.arity()
     for j in range(n):
         s = dt.accessor(i, j)
+        writer.write(" ")
         print_selectors(s, writer)
     writer.write(")")
 
 def write_dt_decl(grp, writer):
     writer.write('(declare-datatypes (')
+    indent = 20
+    first = True
     for dt in grp:
-        writer.write(' ({} 0) '.format(dt))
+        if (not first):
+            writer.write(" ")
+            indent = indent + 1
+        first = False
+        writer.write('({} 0)'.format(dt))
+        indent = indent + len(str(dt)) + 4
     writer.write(') (')
+    indent = indent + 3
+    lnIter = 0
+    sz = len(grp)
     for dt in grp:
-        writer.write(' ( ')
+        writer.write('(')
         n = dt.num_constructors()
+        first = True
         for i in range(n):
+            if (not first):
+                writer.write(" ")
+            first = False
             print_constructor(dt, i, writer)
-        writer.write(' )\n')
+        writer.write(')')
+        if not lnIter == sz - 1:
+            writer.write('\n')
+            writer.write(' ' * indent)
+        lnIter = lnIter + 1
     writer.write('))')
 
-def group_and_print_dt(dt_declarations, writer):
-    seen = set()
+# get all datatypes used at the top level in the definition of dt
+def get_all_top_level_deps(dt):
+    if not isinstance(dt, z3.DatatypeSortRef):
+        return set()
+    deps = {dt}
+    n = dt.num_constructors()
+    for i in range(n):
+        c = dt.constructor(i)
+        m = c.arity()
+        for j in range(m):
+            s = c.domain(j)
+            if isinstance(s, z3.DatatypeSortRef):
+                if s in deps:
+                    continue
+                deps.add(s)
+                deps_new = get_all_top_level_deps(deps)
+                deps.update(deps_new)
+    return deps
+
+
+def group_and_print_dt(dt_declarations, writer, seen):
     for dt in dt_declarations:
         if dt in seen:
             continue
-        grp = get_all_deps(dt)
-        for d in grp:
-            seen.add(d)
+        shallow_deps = get_all_top_level_deps(dt)
+        all_deps = get_all_deps(dt)
+        deep_deps = all_deps - shallow_deps
+        group_and_print_dt(deep_deps, writer, seen)
+        grp = []
+        for d in shallow_deps:
+            if not d in seen:
+                grp.append(d)
+                seen.add(d)
         write_dt_decl(grp, writer)
         writer.write('\n')
 
 def write_clauses_smt2(dt_declarations, pred_declarations, clauses, writer):
     writer.write('(set-logic HORN)\n\n')
-    group_and_print_dt(dt_declarations, writer)
+    group_and_print_dt(dt_declarations, writer, set())
     writer.write('\n')
     for decl in pred_declarations:
         write_pred_decl(decl, writer)
