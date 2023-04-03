@@ -233,7 +233,7 @@ def get_all_top_level_deps(dt):
                 if s in deps:
                     continue
                 deps.add(s)
-                deps_new = get_all_top_level_deps(deps)
+                deps_new = get_all_top_level_deps(s)
                 deps.update(deps_new)
     return deps
 
